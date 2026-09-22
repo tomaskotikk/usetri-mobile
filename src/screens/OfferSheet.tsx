@@ -12,7 +12,7 @@ import {
   type Member,
   type Offer,
 } from '../lib/data'
-import { Banner, Button, Seats, ServiceMark, Sheet, Skeleton, Tag } from '../components/ui'
+import { Avatar, Banner, Button, Seats, ServiceMark, Sheet, Skeleton, Tag } from '../components/ui'
 import { categoryOf, colors, motion, radius } from '../theme'
 
 /**
@@ -85,7 +85,7 @@ export function OfferSheet({
     <Sheet open={offer !== null} onClose={onClose} title={shown.name}>
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
-          <ServiceMark name={shown.name} color={shown.color} size={54} />
+          <ServiceMark name={shown.name} color={shown.color} slug={shown.serviceSlug} size={54} />
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={styles.plan}>{shown.plan}</Text>
             <View style={styles.tags}>
@@ -150,9 +150,7 @@ export function OfferSheet({
                 entering={FadeIn.delay(i * 45).duration(motion.base)}
                 style={styles.member}
               >
-                <View style={styles.memberAvatar}>
-                  <Text style={styles.memberInitial}>{member.name[0]?.toUpperCase() ?? '?'}</Text>
-                </View>
+                <Avatar name={member.name} src={member.avatar} size={30} />
                 <Text style={styles.memberName} numberOfLines={1}>
                   {member.name}
                 </Text>
@@ -291,7 +289,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   memberAvatarFree: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.border },
-  memberInitial: { color: colors.white, fontSize: 12.5, fontWeight: '800' },
   memberName: { flex: 1, color: colors.navyDeep, fontSize: 14, fontWeight: '600' },
   memberFreeText: { flex: 1, color: '#9aa3b4', fontSize: 14 },
   actions: { gap: 10, marginTop: 24 },

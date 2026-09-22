@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -28,6 +29,7 @@ import { Feather } from '@expo/vector-icons'
 import Svg, { Path } from 'react-native-svg'
 import { colors, motion, radius, shadow } from '../theme'
 import { Mascot, type MascotMood } from './Mascot'
+import { BrandGlyph, hasGlyph } from './BrandGlyph'
 import { monogram } from '../lib/data'
 
 type IconName = React.ComponentProps<typeof Feather>['name']
@@ -232,18 +234,40 @@ export function Banner({ tone, text }: { tone: 'error' | 'info'; text: string })
 }
 
 /**
- * Services are identified by their initials on a tinted tile. Shipping the real
- * logos would mean shipping someone else's trademark, so we never do.
+ * Services get their own mark on a tinted tile, falling back to initials for any
+ * slug we haven't drawn. The marks are original shapes in the brand's colour — we
+ * still never ship anyone else's actual logo files. See glyphShapes.ts.
  */
 export function ServiceMark({
   name,
   color,
+  slug,
   size = 42,
 }: {
   name: string
   color: string
+  slug?: string
   size?: number
 }) {
+  if (hasGlyph(slug)) {
+    return (
+      <View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size * 0.33,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: `${color}1f`,
+          borderWidth: 1,
+          borderColor: `${color}33`,
+        }}
+      >
+        <BrandGlyph slug={slug as string} size={size * 0.54} color={color} />
+      </View>
+    )
+  }
+
   return (
     <View
       style={{
@@ -260,6 +284,120 @@ export function ServiceMark({
       <Text style={{ color, fontSize: size * 0.34, fontWeight: '800', letterSpacing: -0.3 }}>
         {monogram(name)}
       </Text>
+    </View>
+  )
+}
+
+/**
+ * A person: their provider picture when we have one, their initials otherwise.
+ * Mirrors the Avatar on the website so a group looks the same in both places.
+ */
+export function Avatar({
+  name,
+  src,
+  size = 36,
+  ring,
+}: {
+  name: string
+  src?: string | null
+  size?: number
+  /** Colour of the hairline that separates overlapping faces in a stack. */
+  ring?: string
+}) {
+  const border = ring ? { borderWidth: 2, borderColor: ring } : null
+
+  if (src) {
+    return (
+      <Image
+        source={{ uri: src }}
+        style={[{ width: size, height: size, borderRadius: size / 2 }, border]}
+      />
+    )
+  }
+
+  return (
+    <View
+      style={[
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: colors.brand,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        border,
+      ]}
+    >
+      <Text style={{ color: colors.brandForeground, fontSize: size * 0.34, fontWeight: '800' }}>
+        {initials(name)}
+      </Text>
+    </View>
+  )
+}
+
+function initials(name: string) {
+  const parts = name.split(/\s+/).filter(Boolean).slice(0, 2)
+  return parts.map((w) => w[0]).join('').toUpperCase() || '?'
+}
+
+/**
+ * Overlapping faces of everyone in a plan, with dashed placeholders for the seats
+ * still going spare — the same treatment as the website's offer cards.
+ */
+export function MemberStack({
+  members,
+  free,
+  size = 28,
+  ring = colors.white,
+}: {
+  members: { id: string; name: string; avatar: string | null }[]
+  free: number
+  size?: number
+  ring?: string
+}) {
+  const shown = members.slice(0, 4)
+  const hidden = members.length - shown.length
+  const overlap = -size * 0.28
+
+  const pill = {
+    width: size,
+    height: size,
+    borderRadius: size / 2,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    marginLeft: overlap,
+    borderWidth: 2,
+    borderColor: ring,
+  }
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', paddingLeft: -overlap }}>
+      {shown.map((m) => (
+        <View key={m.id} style={{ marginLeft: overlap }}>
+          <Avatar name={m.name} src={m.avatar} size={size} ring={ring} />
+        </View>
+      ))}
+
+      {hidden > 0 && (
+        <View style={[pill, { backgroundColor: colors.navyDeep }]}>
+          <Text style={{ color: colors.white, fontSize: size * 0.34, fontWeight: '800' }}>
+            +{hidden}
+          </Text>
+        </View>
+      )}
+
+      {Array.from({ length: Math.min(Math.max(free, 0), 3) }).map((_, i) => (
+        <View
+          key={`free-${i}`}
+          style={[
+            pill,
+            { backgroundColor: colors.white, borderStyle: 'dashed', borderColor: `${colors.muted}59` },
+          ]}
+        >
+          <Text style={{ color: colors.muted, fontSize: size * 0.4, fontWeight: '700' }}>+</Text>
+        </View>
+      ))}
     </View>
   )
 }

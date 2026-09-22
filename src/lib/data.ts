@@ -16,6 +16,8 @@ export type Offer = {
   createdAt: string
   ownerName: string
   role: 'owner' | 'member' | null
+  /** Who already sits in the plan — drives the avatar stack on the card. */
+  members: Face[]
 }
 
 export type Service = {
@@ -31,9 +33,13 @@ export type Service = {
 export type Member = {
   id: string
   name: string
+  avatar: string | null
   role: 'owner' | 'member'
   joinedAt: string
 }
+
+/** Just enough of a member to draw a face in a stack. */
+export type Face = { id: string; name: string; avatar: string | null }
 
 type Row = {
   id: string
@@ -69,7 +75,42 @@ function toOffer(row: Row, roles: Map<string, 'owner' | 'member'>): Offer | null
     createdAt: row.created_at,
     ownerName: row.profiles?.full_name?.trim() || 'Anonymní člen',
     role: roles.get(row.id) ?? null,
+    members: [],
   }
+}
+
+/** One extra round trip fills the avatar stacks for a whole page of offers. */
+async function fillMemberStacks(offers: Offer[]) {
+  if (offers.length === 0) return offers
+
+  const { data } = await supabase
+    .from('group_members')
+    .select('group_id, profiles(id, full_name, avatar_url)')
+    .in(
+      'group_id',
+      offers.map((o) => o.id),
+    )
+    .order('joined_at')
+
+  type StackRow = {
+    group_id: string
+    profiles: { id: string; full_name: string | null; avatar_url: string | null } | null
+  }
+
+  const byGroup = new Map<string, Face[]>()
+  for (const row of (data ?? []) as unknown as StackRow[]) {
+    if (!row.profiles) continue
+    const list = byGroup.get(row.group_id) ?? []
+    list.push({
+      id: row.profiles.id,
+      name: row.profiles.full_name?.trim() || 'Anonymní člen',
+      avatar: row.profiles.avatar_url,
+    })
+    byGroup.set(row.group_id, list)
+  }
+
+  for (const offer of offers) offer.members = byGroup.get(offer.id) ?? []
+  return offers
 }
 
 export type Home = {
@@ -97,9 +138,11 @@ export async function loadHome(userId: string): Promise<Home> {
 
   if (error) throw error
 
-  const all = ((data ?? []) as unknown as Row[])
-    .map((row) => toOffer(row, roles))
-    .filter((o): o is Offer => o !== null)
+  const all = await fillMemberStacks(
+    ((data ?? []) as unknown as Row[])
+      .map((row) => toOffer(row, roles))
+      .filter((o): o is Offer => o !== null),
+  )
 
   const mine = all.filter((o) => o.role !== null)
   const monthly = mine.reduce((sum, o) => sum + o.pricePerSeat, 0)
@@ -141,20 +184,53 @@ export async function loadServices(): Promise<Service[]> {
 export async function loadMembers(groupId: string): Promise<Member[]> {
   const { data, error } = await supabase
     .from('group_members')
-    .select('id, role, joined_at, profiles(full_name)')
+    .select('id, role, joined_at, profiles(full_name, avatar_url)')
     .eq('group_id', groupId)
     .order('joined_at')
 
   if (error) throw error
 
-  type MemberRow = { id: string; role: string; joined_at: string; profiles: { full_name: string | null } | null }
+  type MemberRow = {
+    id: string
+    role: string
+    joined_at: string
+    profiles: { full_name: string | null; avatar_url: string | null } | null
+  }
 
   return ((data ?? []) as unknown as MemberRow[]).map((m) => ({
     id: m.id,
     name: m.profiles?.full_name?.trim() || 'Anonymní člen',
+    avatar: m.profiles?.avatar_url ?? null,
     role: m.role === 'owner' ? 'owner' : 'member',
     joinedAt: m.joined_at,
   }))
+}
+
+/**
+ * The picture the provider handed us on sign-in. Supabase files it under
+ * `avatar_url` for some providers and `picture` for others.
+ */
+export function avatarFromSession(meta: Record<string, unknown> | undefined) {
+  const url = (meta?.avatar_url as string) || (meta?.picture as string)
+  return url?.trim() ? url : null
+}
+
+/**
+ * Copies the Google picture onto the profile row, so every other member sees this
+ * face too — the stacks read `profiles.avatar_url`, not the viewer's own session.
+ * Writes only when it changed, and never blocks sign-in if it fails.
+ */
+export async function syncProfileAvatar(userId: string, meta: Record<string, unknown> | undefined) {
+  const avatar = avatarFromSession(meta)
+  if (!avatar) return
+
+  try {
+    const { data } = await supabase.from('profiles').select('avatar_url').eq('id', userId).maybeSingle()
+    if (data?.avatar_url === avatar) return
+    await supabase.from('profiles').update({ avatar_url: avatar }).eq('id', userId)
+  } catch {
+    // A missing picture is cosmetic; a failed sync must not break the session.
+  }
 }
 
 export async function joinOffer(groupId: string, userId: string) {

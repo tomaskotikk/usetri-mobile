@@ -4,7 +4,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context'
 import Animated, { FadeIn } from 'react-native-reanimated'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './src/lib/supabase'
-import { loadHome, type Home, type Offer } from './src/lib/data'
+import { loadHome, syncProfileAvatar, type Home, type Offer } from './src/lib/data'
 import { Splash } from './src/components/Splash'
 import { TabBar, type TabKey } from './src/components/TabBar'
 import { AuthScreen } from './src/screens/AuthScreen'
@@ -56,6 +56,12 @@ export default function App() {
   }, [])
 
   const userId = session?.user.id
+
+  // Publish the Google picture to the profile row so other members can see it.
+  useEffect(() => {
+    if (!session?.user) return
+    void syncProfileAvatar(session.user.id, session.user.user_metadata)
+  }, [session?.user])
 
   const load = useCallback(async () => {
     if (!userId) return

@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from 'react-native'
 import Animated, { FadeInDown } from 'react-native-reanimated'
 import { Feather } from '@expo/vector-icons'
 import { czk, type Offer } from '../lib/data'
-import { Press, Seats, ServiceMark, Tag } from './ui'
+import { MemberStack, Press, Seats, ServiceMark, Tag } from './ui'
 import { categoryOf, colors, motion, radius, shadow } from '../theme'
 
 /**
@@ -25,7 +25,7 @@ export function OfferCard({
     <Animated.View entering={FadeInDown.delay(index * motion.stagger).duration(motion.slow)}>
       <Press onPress={onPress} style={styles.card}>
         <View style={styles.top}>
-          <ServiceMark name={offer.name} color={offer.color} />
+          <ServiceMark name={offer.name} color={offer.color} slug={offer.serviceSlug} />
 
           <View style={styles.titleWrap}>
             <View style={styles.titleRow}>
@@ -45,6 +45,11 @@ export function OfferCard({
             <Text style={styles.price}>{czk(offer.pricePerSeat)}</Text>
             <Text style={styles.priceNote}>měsíčně</Text>
           </View>
+        </View>
+
+        {/* Faces of the plan, above the seat meter — the same order as on the web card. */}
+        <View style={styles.faces}>
+          <MemberStack members={offer.members} free={free} size={26} ring={colors.white} />
         </View>
 
         <View style={styles.bottom}>
@@ -93,6 +98,7 @@ const styles = StyleSheet.create({
   priceWrap: { alignItems: 'flex-end' },
   price: { color: colors.navyDeep, fontSize: 17, fontWeight: '800', letterSpacing: -0.5 },
   priceNote: { color: colors.muted, fontSize: 10.5 },
+  faces: { marginTop: 12, flexDirection: 'row' },
   bottom: {
     flexDirection: 'row',
     alignItems: 'center',

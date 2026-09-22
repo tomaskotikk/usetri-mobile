@@ -149,7 +149,7 @@ export function CreateSheet({
                 {visible.map((service) => (
                   <Press key={service.slug} onPress={() => choose(service)} scaleTo={0.98}>
                     <View style={styles.option}>
-                      <ServiceMark name={service.name} color={service.color} size={38} />
+                      <ServiceMark name={service.name} color={service.color} slug={service.slug} size={38} />
                       <View style={{ flex: 1, minWidth: 0 }}>
                         <Text style={styles.optionName} numberOfLines={1}>
                           {service.name}
@@ -174,7 +174,7 @@ export function CreateSheet({
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <Press onPress={() => setPicked(null)} scaleTo={0.98}>
               <View style={styles.chosen}>
-                <ServiceMark name={picked.name} color={picked.color} size={40} />
+                <ServiceMark name={picked.name} color={picked.color} slug={picked.slug} size={40} />
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={styles.optionName}>{picked.name}</Text>
                   <Text style={styles.optionPlan}>{picked.plan}</Text>

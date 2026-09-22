@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Alert, Linking, RefreshControl, StyleSheet, Text, View } from 'react-native'
+import { Alert, Image, Linking, RefreshControl, StyleSheet, Text, View } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Animated, {
@@ -10,7 +10,7 @@ import Animated, {
 import { Feather } from '@expo/vector-icons'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
-import { czk, updateProfileName, type Home } from '../lib/data'
+import { avatarFromSession, czk, updateProfileName, type Home } from '../lib/data'
 import { Banner, Button, Field, Press, Sheet } from '../components/ui'
 import { TAB_BAR_SPACE } from '../components/TabBar'
 import { PullMascot } from '../components/PullMascot'
@@ -71,6 +71,8 @@ export function ProfileScreen({
       { text: 'Odhlásit', style: 'destructive', onPress: () => supabase.auth.signOut() },
     ])
 
+  const photo = avatarFromSession(user.user_metadata)
+
   const initials = (currentName || user.email || '?')
     .split(/[\s@.]+/)
     .filter(Boolean)
@@ -101,9 +103,13 @@ export function ProfileScreen({
         </View>
 
         <Animated.View entering={FadeInDown.duration(motion.slow)} style={styles.identity}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials}</Text>
-          </View>
+          {photo ? (
+            <Image source={{ uri: photo }} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{initials}</Text>
+            </View>
+          )}
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={styles.name} numberOfLines={1}>
               {currentName || 'Bez jména'}
