@@ -21,8 +21,21 @@ import { colors } from '../theme'
 
 WebBrowser.maybeCompleteAuthSession()
 
-/** Where Supabase should send the browser back to. Must be on the project's allow list. */
-const redirectTo = makeRedirectUri()
+/** Deep link the browser finally lands on: usetri://auth/callback, or exp://<ip> in Expo Go. */
+const nativeUrl = makeRedirectUri({ scheme: 'usetri', path: 'auth/callback' })
+
+/**
+ * Supabase rejects redirect URLs whose host is a raw IP address, and Expo Go can
+ * only ever offer one. So Supabase returns to the website instead, which forwards
+ * the result to nativeUrl — see app/auth/native/route.ts in the web project.
+ */
+const site = process.env.EXPO_PUBLIC_SITE_URL
+
+if (!site) {
+  throw new Error('Chybí EXPO_PUBLIC_SITE_URL v .env')
+}
+
+const redirectTo = `${site}/auth/native?next=${encodeURIComponent(nativeUrl)}`
 
 const MESSAGES: Record<string, string> = {
   invalid_credentials: 'Nesprávný e-mail nebo heslo.',
@@ -136,13 +149,13 @@ export function AuthScreen() {
       })
       if (error || !data?.url) return setError('Přihlášení přes Google se nepodařilo spustit.')
 
-      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo)
+      const result = await WebBrowser.openAuthSessionAsync(data.url, nativeUrl)
       if (result.type !== 'success') {
-        // Supabase sends the browser to the project's Site URL when the address
-        // below isn't on its allow list — on a phone that dead-ends on localhost.
+        // Supabase falls back to the project's Site URL when redirectTo below is
+        // not on its allow list, and the browser then dead-ends on the website.
         setError(
           __DEV__
-            ? `Google se nevrátil do appky. Povol v Supabase → Authentication → URL Configuration tuhle adresu: ${redirectTo}`
+            ? `Google se nevrátil do appky. Povol v Supabase tenhle web: ${site}/**`
             : 'Přihlášení přes Google se nedokončilo.',
         )
         return
@@ -159,7 +172,7 @@ export function AuthScreen() {
         const { error } = await supabase.auth.exchangeCodeForSession(params.code)
         if (error) setError('Přihlášení přes Google se nepovedlo.')
       } else {
-        setError(`Google nevrátil přihlašovací údaje. Adresa návratu: ${redirectTo}`)
+        setError(`Google nevrátil přihlašovací údaje. Adresa návratu: ${nativeUrl}`)
       }
     } finally {
       setBusy(null)
@@ -271,7 +284,7 @@ export function AuthScreen() {
 
           {__DEV__ && (
             <Text style={styles.devHint} numberOfLines={2}>
-              Návratová adresa pro Supabase: {redirectTo}
+              Návrat přes {site} do {nativeUrl}
             </Text>
           )}
         </View>

@@ -18,6 +18,8 @@ export const supabase = createClient(url, key, {
     persistSession: true,
     // There is no URL to read a session from on iOS or Android.
     detectSessionInUrl: false,
+    // PKCE returns the result as a query param, which the web bridge can forward.
+    flowType: 'pkce',
   },
 })
 

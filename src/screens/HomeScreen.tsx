@@ -1,79 +1,67 @@
-import { useCallback, useEffect, useState } from 'react'
-import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native'
+import { RefreshControl, StyleSheet, Text, View } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { StatusBar } from 'expo-status-bar'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  useAnimatedScrollHandler,
+  useSharedValue,
+} from 'react-native-reanimated'
 import { Feather } from '@expo/vector-icons'
 import type { User } from '@supabase/supabase-js'
-import { supabase } from '../lib/supabase'
-import { czk, joinOffer, leaveOffer, loadHome, type Offer } from '../lib/data'
-import { Button } from '../components/ui'
-import { colors, radius } from '../theme'
+import { czk, type Home, type Offer } from '../lib/data'
+import { OfferCard } from '../components/OfferCard'
+import { Button, CountUp, EmptyState, Press, Skeleton } from '../components/ui'
+import { TAB_BAR_SPACE } from '../components/TabBar'
+import { Mascot } from '../components/Mascot'
+import { PullMascot } from '../components/PullMascot'
+import { colors, motion, radius } from '../theme'
 
-type Data = Awaited<ReturnType<typeof loadHome>>
-
-export function HomeScreen({ user }: { user: User }) {
+export function HomeScreen({
+  user,
+  data,
+  refreshing,
+  onRefresh,
+  onOpenOffer,
+  onDiscover,
+  onCreate,
+}: {
+  user: User
+  data: Home | null
+  refreshing: boolean
+  onRefresh: () => void
+  onOpenOffer: (offer: Offer) => void
+  onDiscover: () => void
+  onCreate: () => void
+}) {
   const insets = useSafeAreaInsets()
-  const [data, setData] = useState<Data | null>(null)
-  const [refreshing, setRefreshing] = useState(false)
-  const [pendingId, setPendingId] = useState<string | null>(null)
+  const pull = useSharedValue(0)
 
-  const load = useCallback(async () => {
-    try {
-      setData(await loadHome(user.id))
-    } catch {
-      Alert.alert('Nepovedlo se načíst data', 'Zkontroluj připojení k internetu.')
-    }
-  }, [user.id])
-
-  useEffect(() => {
-    load()
-  }, [load])
-
-  const refresh = async () => {
-    setRefreshing(true)
-    await load()
-    setRefreshing(false)
-  }
-
-  const act = async (offer: Offer) => {
-    setPendingId(offer.id)
-    const error =
-      offer.role === 'member'
-        ? await leaveOffer(offer.id, user.id)
-        : await joinOffer(offer.id, user.id)
-    setPendingId(null)
-    if (error) Alert.alert('Nepovedlo se', error)
-    else await load()
-  }
+  // 90 px of overscroll is a full pull; past that he is simply held at the bottom.
+  const onScroll = useAnimatedScrollHandler((event) => {
+    pull.value = Math.min(1, Math.max(0, -event.contentOffset.y / 90))
+  })
 
   const meta = (user.user_metadata ?? {}) as { full_name?: string; name?: string }
   const firstName = (meta.full_name ?? meta.name ?? '').split(' ')[0]
 
-  if (!data) {
-    return (
-      <View style={[styles.root, styles.center]}>
-        <ActivityIndicator color={colors.brand} size="large" />
-      </View>
-    )
-  }
-
   return (
     <View style={styles.root}>
       <StatusBar style="light" />
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
+      {/* Navy behind the header, so the gap a pull opens up matches the gradient. */}
+      <View style={[styles.pullBackdrop, { height: insets.top + 240 }]} />
+      <PullMascot pull={pull} refreshing={refreshing} />
+
+      <Animated.ScrollView
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        contentContainerStyle={{
+          paddingBottom: TAB_BAR_SPACE + insets.bottom,
+          backgroundColor: colors.surface,
+        }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.brand} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="transparent" />
         }
         showsVerticalScrollIndicator={false}
       >
@@ -81,83 +69,142 @@ export function HomeScreen({ user }: { user: User }) {
           colors={[colors.navyMid, '#0b1730', colors.navyDeep]}
           style={[styles.header, { paddingTop: insets.top + 18 }]}
         >
-          <View style={styles.headerRow}>
-            <Text style={styles.logo}>
-              Ušetři<Text style={{ color: colors.brand }}>.</Text>
-            </Text>
-            <Pressable
-              onPress={() => supabase.auth.signOut()}
-              hitSlop={10}
-              style={styles.iconButton}
-            >
-              <Feather name="log-out" size={16} color="rgba(255,255,255,0.75)" />
-            </Pressable>
-          </View>
+          <Text style={styles.logo}>
+            Ušetři<Text style={{ color: colors.brand }}>.</Text>
+          </Text>
 
-          <Text style={styles.greeting}>{firstName ? `Ahoj, ${firstName}.` : 'Ahoj.'}</Text>
-
-          <View style={styles.savingsCard}>
-            <Text style={styles.savingsLabel}>Tento měsíc šetříš</Text>
-            <Text style={styles.savingsValue}>{czk(data.stats.saved)}</Text>
-            {data.stats.percent > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>↑ {data.stats.percent} % oproti samostatným</Text>
-              </View>
-            )}
-            <View style={styles.statRow}>
-              <Stat label="Platíš měsíčně" value={czk(data.stats.monthly)} />
-              <Stat label="Skupiny" value={String(data.stats.groups)} />
+          <View style={styles.greetingRow}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Animated.Text entering={FadeInDown.duration(motion.slow)} style={styles.greeting}>
+                {firstName ? `Ahoj, ${firstName}.` : 'Ahoj.'}
+              </Animated.Text>
+              <Animated.Text
+                entering={FadeInDown.delay(60).duration(motion.slow)}
+                style={styles.greetingNote}
+              >
+                {data && data.stats.groups > 0
+                  ? `Jsi v ${data.stats.groups === 1 ? '1 skupině' : `${data.stats.groups} skupinách`}.`
+                  : 'Pojď si najít první skupinu.'}
+              </Animated.Text>
             </View>
+            <Animated.View entering={FadeIn.delay(220).duration(motion.slow)}>
+              <Mascot
+                size={88}
+                mood="wave"
+                holds={data && data.stats.saved > 0 ? 'bag' : undefined}
+              />
+            </Animated.View>
           </View>
+
+          {!data ? (
+            <View style={styles.savingsCard}>
+              <Skeleton height={92} />
+            </View>
+          ) : (
+            <Animated.View
+              entering={FadeInDown.delay(90).duration(motion.slow)}
+              style={styles.savingsCard}
+            >
+              <Text style={styles.savingsLabel}>Tento měsíc šetříš</Text>
+              <CountUp value={data.stats.saved} format={czk} style={styles.savingsValue} />
+
+              {data.stats.percent > 0 && (
+                <Animated.View entering={FadeIn.delay(500)} style={styles.badge}>
+                  <Feather name="trending-down" size={12} color={colors.brand} />
+                  <Text style={styles.badgeText}>
+                    o {data.stats.percent} % méně než samostatně
+                  </Text>
+                </Animated.View>
+              )}
+
+              <View style={styles.statRow}>
+                <Stat label="Platíš měsíčně" value={czk(data.stats.monthly)} />
+                <Stat label="Skupiny" value={String(data.stats.groups)} />
+                <Stat label="Ročně ušetříš" value={czk(data.stats.saved * 12)} />
+              </View>
+            </Animated.View>
+          )}
         </LinearGradient>
 
         <View style={styles.body}>
-          <Section title="Tvoje skupiny" count={data.mine.length}>
-            {data.mine.length === 0 ? (
-              <Empty
-                icon="users"
-                text="Zatím nejsi v žádné skupině. Níže jsou volná místa, do kterých se můžeš přidat."
-              />
-            ) : (
-              data.mine.map((offer) => (
-                <OfferRow
-                  key={offer.id}
-                  offer={offer}
-                  pending={pendingId === offer.id}
-                  onPress={() => act(offer)}
-                />
-              ))
-            )}
-          </Section>
+          {!data ? (
+            <View style={{ gap: 12 }}>
+              <Skeleton height={112} />
+              <Skeleton height={112} />
+            </View>
+          ) : (
+            <>
+              <Section title="Tvoje skupiny" count={data.mine.length}>
+                {data.mine.length === 0 ? (
+                  <EmptyState
+                    icon="users"
+                    mascot="wave"
+                    title="Zatím nikde nejsi"
+                    text="Přidej se do skupiny, které zbývá místo, nebo založ vlastní nabídku."
+                    action={
+                      <Button
+                        label="Projít volná místa"
+                        onPress={onDiscover}
+                        variant="outline"
+                        icon="compass"
+                        style={{ marginTop: 10, paddingHorizontal: 18 }}
+                      />
+                    }
+                  />
+                ) : (
+                  data.mine.map((offer, i) => (
+                    <OfferCard
+                      key={offer.id}
+                      offer={offer}
+                      index={i}
+                      onPress={() => onOpenOffer(offer)}
+                    />
+                  ))
+                )}
+              </Section>
 
-          <Section title="Volná místa" count={data.open.length}>
-            {data.open.length === 0 ? (
-              <Empty icon="inbox" text="Právě teď nikdo nenabízí volné místo." />
-            ) : (
-              data.open.map((offer) => (
-                <OfferRow
-                  key={offer.id}
-                  offer={offer}
-                  pending={pendingId === offer.id}
-                  onPress={() => act(offer)}
-                />
-              ))
-            )}
-          </Section>
+              {data.open.length > 0 && (
+                <Section
+                  title="Volná místa"
+                  count={data.open.length}
+                  action={
+                    <Press onPress={onDiscover} scaleTo={0.94}>
+                      <Text style={styles.sectionLink}>Vše</Text>
+                    </Press>
+                  }
+                >
+                  {data.open.slice(0, 3).map((offer, i) => (
+                    <OfferCard
+                      key={offer.id}
+                      offer={offer}
+                      index={i}
+                      onPress={() => onOpenOffer(offer)}
+                    />
+                  ))}
+                </Section>
+              )}
 
-          <Text style={styles.footnote}>
-            Nabídky zakládáš na webu usetri.cz — v appce se k nim přidáš. Platby zatím nejsou
-            napojené, domluvte se se zakladatelem napřímo.
-          </Text>
+              <Press onPress={onCreate} style={styles.promo}>
+                <Mascot size={58} mood="idle" holds="coin" animated={false} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.promoTitle}>Máš volné místo v tarifu?</Text>
+                  <Text style={styles.promoText}>
+                    Založ nabídku a rozpočítej cenu mezi ostatní.
+                  </Text>
+                </View>
+                <Feather name="chevron-right" size={18} color={colors.muted} />
+              </Press>
+            </>
+          )}
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   )
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <View>
+    <View style={{ flex: 1 }}>
       <Text style={styles.statLabel}>{label}</Text>
       <Text style={styles.statValue}>{value}</Text>
     </View>
@@ -167,10 +214,12 @@ function Stat({ label, value }: { label: string; value: string }) {
 function Section({
   title,
   count,
+  action,
   children,
 }: {
   title: string
   count: number
+  action?: React.ReactNode
   children: React.ReactNode
 }) {
   return (
@@ -178,126 +227,27 @@ function Section({
       <View style={styles.sectionHead}>
         <Text style={styles.sectionTitle}>{title}</Text>
         <Text style={styles.sectionCount}>{count}</Text>
+        <View style={{ flex: 1 }} />
+        {action}
       </View>
       <View style={{ gap: 10 }}>{children}</View>
     </View>
   )
 }
 
-function monogram(name: string) {
-  const words = name.split(/[\s+]+/).filter(Boolean)
-  return (words.length > 1 ? words[0][0] + words[1][0] : words[0]?.[0] ?? '?').toUpperCase()
-}
-
-function OfferRow({
-  offer,
-  pending,
-  onPress,
-}: {
-  offer: Offer
-  pending: boolean
-  onPress: () => void
-}) {
-  const free = Math.max(0, offer.seatsTotal - offer.seatsTaken)
-
-  return (
-    <View style={styles.card}>
-      <View style={styles.cardTop}>
-        <View style={[styles.badgeIcon, { backgroundColor: `${offer.color}1f` }]}>
-          <Text style={[styles.badgeIconText, { color: offer.color }]}>{monogram(offer.name)}</Text>
-        </View>
-
-        <View style={styles.cardTitleWrap}>
-          <View style={styles.cardTitleRow}>
-            <Text style={styles.cardTitle} numberOfLines={1}>
-              {offer.name}
-            </Text>
-            {offer.role === 'owner' && <Tag label="tvoje" dark />}
-            {offer.role === 'member' && <Tag label="jsi člen" />}
-          </View>
-          <Text style={styles.cardPlan} numberOfLines={1}>
-            {offer.plan}
-          </Text>
-        </View>
-
-        <View style={{ alignItems: 'flex-end' }}>
-          <Text style={styles.price}>{czk(offer.pricePerSeat)}</Text>
-          <Text style={styles.priceNote}>měsíčně</Text>
-        </View>
-      </View>
-
-      <View style={styles.cardBottom}>
-        <View style={styles.seats}>
-          {Array.from({ length: offer.seatsTotal }).map((_, i) => (
-            <View
-              key={i}
-              style={[styles.seatDot, i < offer.seatsTaken && { backgroundColor: colors.brand }]}
-            />
-          ))}
-          <Text style={styles.seatText}>
-            {free === 0 ? 'plno' : `volná ${free}`} · {offer.ownerName}
-          </Text>
-        </View>
-
-        {offer.role === 'owner' ? (
-          <Text style={styles.ownerHint}>spravuj na webu</Text>
-        ) : (
-          <Button
-            label={offer.role === 'member' ? 'Odejít' : 'Přidat se'}
-            variant={offer.role === 'member' ? 'outline' : 'primary'}
-            onPress={onPress}
-            loading={pending}
-            style={styles.cardButton}
-          />
-        )}
-      </View>
-    </View>
-  )
-}
-
-function Tag({ label, dark = false }: { label: string; dark?: boolean }) {
-  return (
-    <View style={[styles.tag, dark && { backgroundColor: colors.navyDeep }]}>
-      <Text style={[styles.tagText, dark && { color: colors.white }]}>{label}</Text>
-    </View>
-  )
-}
-
-function Empty({ icon, text }: { icon: React.ComponentProps<typeof Feather>['name']; text: string }) {
-  return (
-    <View style={styles.empty}>
-      <Feather name={icon} size={20} color={colors.muted} />
-      <Text style={styles.emptyText}>{text}</Text>
-    </View>
-  )
-}
-
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
-  center: { alignItems: 'center', justifyContent: 'center' },
+  pullBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: colors.navyMid },
   header: {
     paddingHorizontal: 20,
     paddingBottom: 22,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
   },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   logo: { color: colors.white, fontSize: 19, fontWeight: '800', letterSpacing: -0.5 },
-  iconButton: {
-    width: 34,
-    height: 34,
-    borderRadius: radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.09)',
-  },
-  greeting: {
-    color: colors.white,
-    fontSize: 28,
-    fontWeight: '800',
-    letterSpacing: -1,
-    marginTop: 16,
-  },
+  greetingRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 },
+  greeting: { color: colors.white, fontSize: 28, fontWeight: '800', letterSpacing: -1 },
+  greetingNote: { color: 'rgba(255,255,255,0.55)', fontSize: 13.5, marginTop: 4 },
   savingsCard: {
     marginTop: 16,
     backgroundColor: 'rgba(255,255,255,0.06)',
@@ -320,6 +270,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     alignSelf: 'flex-start',
     backgroundColor: 'rgba(0,217,154,0.18)',
     borderRadius: radius.pill,
@@ -330,7 +283,7 @@ const styles = StyleSheet.create({
   badgeText: { color: colors.brand, fontSize: 11.5, fontWeight: '700' },
   statRow: {
     flexDirection: 'row',
-    gap: 28,
+    gap: 14,
     marginTop: 16,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.1)',
@@ -338,69 +291,28 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     color: 'rgba(255,255,255,0.5)',
-    fontSize: 10.5,
-    letterSpacing: 1.2,
+    fontSize: 10,
+    letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
-  statValue: { color: colors.white, fontSize: 18, fontWeight: '700', marginTop: 3 },
+  statValue: { color: colors.white, fontSize: 16, fontWeight: '700', marginTop: 3 },
   body: { padding: 20, gap: 26 },
   section: { gap: 12 },
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   sectionTitle: { color: colors.navyDeep, fontSize: 19, fontWeight: '800', letterSpacing: -0.5 },
   sectionCount: { color: colors.muted, fontSize: 14, fontWeight: '600' },
-  card: {
+  sectionLink: { color: colors.muted, fontSize: 13.5, fontWeight: '700' },
+  promo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
     backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
     borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: 15,
-    shadowColor: '#050b1a',
-    shadowOpacity: 0.06,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 2,
   },
-  cardTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  badgeIcon: { width: 42, height: 42, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
-  badgeIconText: { fontSize: 14, fontWeight: '800' },
-  cardTitleWrap: { flex: 1, minWidth: 0 },
-  cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  cardTitle: { color: colors.navyDeep, fontSize: 16.5, fontWeight: '700', letterSpacing: -0.3 },
-  cardPlan: { color: colors.muted, fontSize: 12.5, marginTop: 1 },
-  price: { color: colors.navyDeep, fontSize: 17, fontWeight: '800', letterSpacing: -0.5 },
-  priceNote: { color: colors.muted, fontSize: 10.5 },
-  cardBottom: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: 12,
-    gap: 10,
-  },
-  seats: { flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 },
-  seatDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.border },
-  seatText: { color: colors.muted, fontSize: 12, marginLeft: 6, flexShrink: 1 },
-  cardButton: { height: 38, paddingHorizontal: 16 },
-  ownerHint: { color: colors.muted, fontSize: 12 },
-  tag: {
-    backgroundColor: 'rgba(0,217,154,0.16)',
-    borderRadius: radius.pill,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  tagText: { color: colors.brandForeground, fontSize: 10, fontWeight: '700' },
-  empty: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    padding: 18,
-  },
-  emptyText: { flex: 1, color: colors.muted, fontSize: 13.5, lineHeight: 19 },
-  footnote: { color: colors.muted, fontSize: 12, lineHeight: 18, textAlign: 'center' },
+  promoTitle: { color: colors.navyDeep, fontSize: 14.5, fontWeight: '700' },
+  promoText: { color: colors.muted, fontSize: 12.5, marginTop: 2, lineHeight: 17 },
 })
