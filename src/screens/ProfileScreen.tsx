@@ -16,7 +16,7 @@ import { TAB_BAR_SPACE } from '../components/TabBar'
 import { PullMascot } from '../components/PullMascot'
 import { colors, motion, radius } from '../theme'
 
-const SITE = process.env.EXPO_PUBLIC_SITE_URL ?? 'https://usetri-five.vercel.app'
+const SITE = process.env.EXPO_PUBLIC_SITE_URL ?? 'https://usetri.app'
 
 export function ProfileScreen({
   user,

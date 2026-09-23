@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Alert, StyleSheet, View } from 'react-native'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import Animated, { FadeIn } from 'react-native-reanimated'
@@ -13,6 +13,7 @@ import { DiscoverScreen } from './src/screens/DiscoverScreen'
 import { GroupsScreen } from './src/screens/GroupsScreen'
 import { ProfileScreen } from './src/screens/ProfileScreen'
 import { OfferSheet } from './src/screens/OfferSheet'
+import { MemberSheet } from './src/screens/MemberSheet'
 import { CreateSheet } from './src/screens/CreateSheet'
 import { OnboardingScreen } from './src/screens/OnboardingScreen'
 import { colors, motion } from './src/theme'
@@ -39,6 +40,9 @@ export default function App() {
   const [tab, setTab] = useState<TabKey>('home')
   const [creating, setCreating] = useState(false)
   const [opened, setOpened] = useState<Offer | null>(null)
+  const [member, setMember] = useState<string | null>(null)
+  /** The offer to slide back to once a member's profile closes. */
+  const resume = useRef<Offer | null>(null)
   const [guide, setGuide] = useState(false)
 
   useEffect(() => {
@@ -92,6 +96,33 @@ export default function App() {
       // A guide that cannot record itself is better shown twice than not at all.
     }
     setGuide(false)
+  }
+
+  /**
+   * Sheets are Modals, and React Native presents only one at a time — a second
+   * one raised over the first never appears, yet its window still swallows every
+   * touch, which leaves the whole app dead. So they are handed over: the first
+   * closes, and the next opens once its exit has finished.
+   */
+  const HANDOVER = motion.base + 80
+
+  const openMember = (id: string) => {
+    resume.current = opened
+    setOpened(null)
+    setTimeout(() => setMember(id), opened ? HANDOVER : 0)
+  }
+
+  const closeMember = () => {
+    setMember(null)
+    const back = resume.current
+    resume.current = null
+    if (back) setTimeout(() => setOpened(back), HANDOVER)
+  }
+
+  const openOfferFromProfile = (offer: Offer) => {
+    resume.current = null
+    setMember(null)
+    setTimeout(() => setOpened(offer), HANDOVER)
   }
 
   // The offer in state is a snapshot; refresh it from the reloaded list.
@@ -156,6 +187,13 @@ export default function App() {
               userId={session.user.id}
               onClose={() => setOpened(null)}
               onChanged={load}
+              onOpenMember={openMember}
+            />
+            <MemberSheet
+              userId={member}
+              viewerId={session.user.id}
+              onClose={closeMember}
+              onOpenOffer={openOfferFromProfile}
             />
             <CreateSheet
               open={creating}

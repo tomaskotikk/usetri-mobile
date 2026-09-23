@@ -12,7 +12,7 @@ import {
   type Member,
   type Offer,
 } from '../lib/data'
-import { Avatar, Banner, Button, Seats, ServiceMark, Sheet, Skeleton, Tag } from '../components/ui'
+import { Avatar, Banner, Button, Press, Seats, ServiceMark, Sheet, Skeleton, Tag } from '../components/ui'
 import { categoryOf, colors, motion, radius } from '../theme'
 
 /**
@@ -24,11 +24,14 @@ export function OfferSheet({
   userId,
   onClose,
   onChanged,
+  onOpenMember,
 }: {
   offer: Offer | null
   userId: string
   onClose: () => void
   onChanged: () => void
+  /** Opens a member's profile. Their own row is not clickable. */
+  onOpenMember: (id: string) => void
 }) {
   const [members, setMembers] = useState<Member[] | null>(null)
   const [busy, setBusy] = useState(false)
@@ -145,16 +148,22 @@ export function OfferSheet({
         ) : (
           <View style={styles.members}>
             {members.map((member, i) => (
-              <Animated.View
-                key={member.id}
-                entering={FadeIn.delay(i * 45).duration(motion.base)}
-                style={styles.member}
-              >
-                <Avatar name={member.name} src={member.avatar} size={30} />
-                <Text style={styles.memberName} numberOfLines={1}>
-                  {member.name}
-                </Text>
-                {member.role === 'owner' && <Tag label="zakladatel" tone="muted" />}
+              <Animated.View key={member.id} entering={FadeIn.delay(i * 45).duration(motion.base)}>
+                <Press
+                  onPress={() => member.userId !== userId && onOpenMember(member.userId)}
+                  scaleTo={member.userId === userId ? 1 : 0.97}
+                >
+                  <View style={styles.member}>
+                    <Avatar name={member.name} src={member.avatar} size={30} />
+                    <Text style={styles.memberName} numberOfLines={1}>
+                      {member.name}
+                    </Text>
+                    {member.role === 'owner' && <Tag label="zakladatel" tone="muted" />}
+                    {member.userId !== userId && (
+                      <Feather name="chevron-right" size={16} color="#b6bfcd" />
+                    )}
+                  </View>
+                </Press>
               </Animated.View>
             ))}
             {Array.from({ length: free }).map((_, i) => (

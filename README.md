@@ -18,13 +18,16 @@ Soubor je v `.gitignore`, takže se necommituje.
 
 Supabase po přihlášení přesměruje prohlížeč na adresu, kterou dostane od aplikace. Pokud ta adresa
 **není na seznamu povolených**, použije se místo ní **Site URL** — a ta je nastavená na
-`http://localhost:3000`, což je adresa webu na počítači. Telefon ji neotevře a přihlášení se nedokončí.
+`https://usetri.app`. Během vývoje běží web na `http://localhost:3000`, kterou telefon neotevře,
+a přihlášení se nedokončí.
 
 V Supabase → **Authentication → URL Configuration → Redirect URLs** přidej (stávající nech být):
 
 ```
-exp://**        ← Expo Go během vývoje
-usetri://**     ← až se appka sestaví nastvrdo
+exp://**                 ← Expo Go během vývoje
+usetri://**              ← sestavená aplikace
+https://usetri.app/**    ← produkční web
+https://www.usetri.app/**
 ```
 
 Týká se to přihlášení přes Google i potvrzovacího e-mailu po registraci.

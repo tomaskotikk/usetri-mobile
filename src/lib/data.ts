@@ -14,6 +14,7 @@ export type Offer = {
   note: string | null
   closed: boolean
   createdAt: string
+  ownerId: string
   ownerName: string
   role: 'owner' | 'member' | null
   /** Who already sits in the plan — drives the avatar stack on the card. */
@@ -32,6 +33,8 @@ export type Service = {
 
 export type Member = {
   id: string
+  /** The account behind the membership, for opening their profile. */
+  userId: string
   name: string
   avatar: string | null
   role: 'owner' | 'member'
@@ -43,6 +46,7 @@ export type Face = { id: string; name: string; avatar: string | null }
 
 type Row = {
   id: string
+  owner_id: string
   service_slug: string
   seats_total: number
   seats_taken: number
@@ -55,7 +59,7 @@ type Row = {
 }
 
 const SELECT =
-  'id, service_slug, seats_total, seats_taken, price_per_seat, note, closed, created_at, services(name, plan, category, color, full_price), profiles!groups_owner_id_fkey(full_name)'
+  'id, owner_id, service_slug, seats_total, seats_taken, price_per_seat, note, closed, created_at, services(name, plan, category, color, full_price), profiles!groups_owner_id_fkey(full_name)'
 
 function toOffer(row: Row, roles: Map<string, 'owner' | 'member'>): Offer | null {
   if (!row.services) return null
@@ -73,6 +77,7 @@ function toOffer(row: Row, roles: Map<string, 'owner' | 'member'>): Offer | null
     note: row.note,
     closed: row.closed,
     createdAt: row.created_at,
+    ownerId: row.owner_id,
     ownerName: row.profiles?.full_name?.trim() || 'Anonymní člen',
     role: roles.get(row.id) ?? null,
     members: [],
@@ -184,7 +189,7 @@ export async function loadServices(): Promise<Service[]> {
 export async function loadMembers(groupId: string): Promise<Member[]> {
   const { data, error } = await supabase
     .from('group_members')
-    .select('id, role, joined_at, profiles(full_name, avatar_url)')
+    .select('id, user_id, role, joined_at, profiles(full_name, avatar_url)')
     .eq('group_id', groupId)
     .order('joined_at')
 
@@ -192,6 +197,7 @@ export async function loadMembers(groupId: string): Promise<Member[]> {
 
   type MemberRow = {
     id: string
+    user_id: string
     role: string
     joined_at: string
     profiles: { full_name: string | null; avatar_url: string | null } | null
@@ -199,6 +205,7 @@ export async function loadMembers(groupId: string): Promise<Member[]> {
 
   return ((data ?? []) as unknown as MemberRow[]).map((m) => ({
     id: m.id,
+    userId: m.user_id,
     name: m.profiles?.full_name?.trim() || 'Anonymní člen',
     avatar: m.profiles?.avatar_url ?? null,
     role: m.role === 'owner' ? 'owner' : 'member',
@@ -306,4 +313,73 @@ export const czk = (value: number) =>
 export function monogram(name: string) {
   const words = name.split(/[\s+]+/).filter(Boolean)
   return (words.length > 1 ? words[0][0] + words[1][0] : words[0]?.[0] ?? '?').toUpperCase()
+}
+
+export type PublicProfile = {
+  id: string
+  name: string
+  avatar: string | null
+  joinedAt: string
+  owned: number
+  joined: number
+  freeSeats: number
+  offers: Offer[]
+}
+
+/**
+ * What one member may see about another: a name, a face, and counts.
+ *
+ * Never what they pay. The privacy notice promises other members see a name and
+ * a picture, and how much somebody spends on subscriptions has no business on a
+ * profile a stranger can open.
+ */
+export async function loadProfile(id: string, viewerId: string): Promise<PublicProfile | null> {
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id, full_name, avatar_url, created_at')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (!profile) return null
+
+  const [{ data: theirs }, { data: mine }] = await Promise.all([
+    supabase.from('group_members').select('group_id, role').eq('user_id', id),
+    supabase.from('group_members').select('group_id, role').eq('user_id', viewerId),
+  ])
+
+  const roles = new Map(
+    (mine ?? []).map((m) => [m.group_id as string, (m.role === 'owner' ? 'owner' : 'member') as 'owner' | 'member']),
+  )
+
+  const { data } = await supabase
+    .from('groups')
+    .select(SELECT)
+    .eq('owner_id', id)
+    .eq('closed', false)
+    .order('created_at', { ascending: false })
+
+  const offers = await fillMemberStacks(
+    ((data ?? []) as unknown as Row[]).map((row) => toOffer(row, roles)).filter((o): o is Offer => o !== null),
+  )
+
+  return {
+    id: profile.id,
+    name: profile.full_name?.trim() || 'Anonymní člen',
+    avatar: profile.avatar_url ?? null,
+    joinedAt: profile.created_at,
+    owned: (theirs ?? []).filter((m) => m.role === 'owner').length,
+    joined: (theirs ?? []).filter((m) => m.role !== 'owner').length,
+    freeSeats: offers.reduce((sum, o) => sum + Math.max(0, o.seatsTotal - o.seatsTaken), 0),
+    offers,
+  }
+}
+
+/** Rough "how long ago", worded the same as on the website. */
+export function since(iso: string) {
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
+  if (days <= 0) return 'dnes'
+  if (days === 1) return 'včera'
+  if (days < 7) return `před ${days} dny`
+  if (days < 60) return `před ${Math.floor(days / 7)} týdny`
+  return `před ${Math.floor(days / 30)} měsíci`
 }
