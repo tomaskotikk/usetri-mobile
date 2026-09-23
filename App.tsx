@@ -99,10 +99,9 @@ export default function App() {
   }
 
   /**
-   * Sheets are Modals, and React Native presents only one at a time — a second
-   * one raised over the first never appears, yet its window still swallows every
-   * touch, which leaves the whole app dead. So they are handed over: the first
-   * closes, and the next opens once its exit has finished.
+   * The profile overlay is not a Modal, so it can no longer be smothered by one —
+   * but a Modal still renders in its own window above every view, so the offer
+   * sheet has to be gone before the profile appears. Hence the handover.
    */
   const HANDOVER = motion.base + 80
 
@@ -189,12 +188,6 @@ export default function App() {
               onChanged={load}
               onOpenMember={openMember}
             />
-            <MemberSheet
-              userId={member}
-              viewerId={session.user.id}
-              onClose={closeMember}
-              onOpenOffer={openOfferFromProfile}
-            />
             <CreateSheet
               open={creating}
               userId={session.user.id}
@@ -203,6 +196,13 @@ export default function App() {
                 setTab('groups')
                 load()
               }}
+            />
+
+            <MemberSheet
+              userId={member}
+              viewerId={session.user.id}
+              onClose={closeMember}
+              onOpenOffer={openOfferFromProfile}
             />
           </>
         )}

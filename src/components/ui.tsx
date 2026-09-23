@@ -578,6 +578,69 @@ export function CountUp({
 }
 
 /**
+ * A sheet that is not a Modal.
+ *
+ * React Native presents one Modal at a time: a second one raised over the first
+ * never appears, yet its window still swallows every touch, so the app looks
+ * frozen. Anything that has to open *from* another sheet uses this instead — it
+ * is an ordinary absolutely-positioned view, so it can never fight for the
+ * native window.
+ *
+ * The caller renders it last inside the app root, above the tab bar.
+ */
+export function SheetOverlay({
+  open,
+  onClose,
+  title,
+  children,
+}: {
+  open: boolean
+  onClose: () => void
+  title: string
+  children: React.ReactNode
+}) {
+  const insets = useSafeAreaInsets()
+  // Outlives `open` by the exit, or the view is torn down before it can slide away.
+  const [mounted, setMounted] = useState(open)
+
+  useEffect(() => {
+    if (open) return setMounted(true)
+    const timer = setTimeout(() => setMounted(false), motion.base + 60)
+    return () => clearTimeout(timer)
+  }, [open])
+
+  if (!mounted) return null
+
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents={open ? 'auto' : 'none'}>
+      <Animated.View
+        entering={FadeIn.duration(motion.quick)}
+        exiting={FadeOut.duration(motion.quick)}
+        style={styles.scrim}
+      >
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+      </Animated.View>
+
+      <Animated.View
+        entering={SlideInDown.duration(320).easing(Easing.out(Easing.cubic))}
+        exiting={SlideOutDown.duration(240).easing(Easing.in(Easing.cubic))}
+        style={[
+          styles.sheet,
+          styles.sheetFull,
+          { paddingTop: insets.top + 6, paddingBottom: insets.bottom + 18 },
+        ]}
+      >
+        <View style={styles.sheetHead}>
+          <Text style={styles.sheetTitle}>{title}</Text>
+          <IconButton icon="x" onPress={onClose} />
+        </View>
+        {open && children}
+      </Animated.View>
+    </View>
+  )
+}
+
+/**
  * A bottom sheet that slides up over a fading scrim. `full` takes the whole
  * screen instead — for flows long enough that a half-height sheet would spend
  * most of its room on the scrim.

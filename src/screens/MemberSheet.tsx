@@ -4,7 +4,7 @@ import Animated, { FadeIn } from 'react-native-reanimated'
 import { Feather } from '@expo/vector-icons'
 import { loadProfile, since, type Offer, type PublicProfile } from '../lib/data'
 import { OfferCard } from '../components/OfferCard'
-import { Avatar, EmptyState, Sheet, Skeleton } from '../components/ui'
+import { Avatar, EmptyState, SheetOverlay, Skeleton } from '../components/ui'
 import { colors, motion, radius } from '../theme'
 
 /**
@@ -52,7 +52,7 @@ export function MemberSheet({
   const self = profile?.id === viewerId
 
   return (
-    <Sheet open={userId !== null} onClose={onClose} title="Profil člena" full>
+    <SheetOverlay open={userId !== null} onClose={onClose} title="Profil člena">
       {loading ? (
         <View style={styles.body}>
           <Skeleton height={76} />
@@ -107,7 +107,7 @@ export function MemberSheet({
           )}
         </ScrollView>
       )}
-    </Sheet>
+    </SheetOverlay>
   )
 }
 
