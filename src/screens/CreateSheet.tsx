@@ -118,10 +118,11 @@ export function CreateSheet({
     <Sheet
       open={open}
       onClose={onClose}
+      full
       title={picked ? 'Nastav nabídku' : 'Vyber službu'}
     >
       {!picked ? (
-        <View style={{ gap: 14 }}>
+        <View style={{ gap: 14, flex: 1 }}>
           <Field
             placeholder="Hledat v katalogu…"
             value={query}
@@ -170,8 +171,12 @@ export function CreateSheet({
           </ScrollView>
         </View>
       ) : (
-        <Animated.View entering={FadeInRight.duration(motion.base)} exiting={FadeOut}>
-          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <Animated.View style={{ flex: 1 }} entering={FadeInRight.duration(motion.base)} exiting={FadeOut}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ paddingBottom: 24 }}
+          >
             <Press onPress={() => setPicked(null)} scaleTo={0.98}>
               <View style={styles.chosen}>
                 <ServiceMark name={picked.name} color={picked.color} slug={picked.slug} size={40} />
@@ -253,7 +258,7 @@ function MathRow({ label, value, strong }: { label: string; value: string; stron
 }
 
 const styles = StyleSheet.create({
-  catalogue: { maxHeight: 380 },
+  catalogue: { flex: 1 },
   none: { color: colors.muted, fontSize: 13.5, textAlign: 'center', paddingVertical: 28 },
   option: {
     flexDirection: 'row',

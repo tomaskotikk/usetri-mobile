@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -461,9 +463,12 @@ export function Segmented<T extends string>({
   onChange: (value: T) => void
 }) {
   return (
+    // segmentedTrack pins the height to the content: left to grow, a horizontal
+    // ScrollView swallows every spare row of a flexing column.
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
+      style={styles.segmentedTrack}
       contentContainerStyle={styles.segmented}
     >
       {options.map((option) => {
@@ -572,16 +577,22 @@ export function CountUp({
   return <Text style={style}>{format(shown)}</Text>
 }
 
-/** A bottom sheet that slides up over a fading scrim. */
+/**
+ * A bottom sheet that slides up over a fading scrim. `full` takes the whole
+ * screen instead — for flows long enough that a half-height sheet would spend
+ * most of its room on the scrim.
+ */
 export function Sheet({
   open,
   onClose,
   title,
+  full,
   children,
 }: {
   open: boolean
   onClose: () => void
   title: string
+  full?: boolean
   children: React.ReactNode
 }) {
   const insets = useSafeAreaInsets()
@@ -610,14 +621,27 @@ export function Sheet({
           <Animated.View
             entering={SlideInDown.duration(320).easing(Easing.out(Easing.cubic))}
             exiting={SlideOutDown.duration(240).easing(Easing.in(Easing.cubic))}
-            style={[styles.sheet, { paddingBottom: insets.bottom + 18 }]}
+            style={[
+              styles.sheet,
+              { paddingBottom: insets.bottom + 18 },
+              full && [styles.sheetFull, { paddingTop: insets.top + 6 }],
+            ]}
           >
-            <View style={styles.grabber} />
+            {!full && <View style={styles.grabber} />}
             <View style={styles.sheetHead}>
               <Text style={styles.sheetTitle}>{title}</Text>
               <IconButton icon="x" onPress={onClose} />
             </View>
-            {children}
+            {full ? (
+              <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              >
+                {children}
+              </KeyboardAvoidingView>
+            ) : (
+              children
+            )}
           </Animated.View>
         </View>
       )}
@@ -708,6 +732,7 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { color: colors.navyDeep, fontSize: 15.5, fontWeight: '700' },
   emptyText: { color: colors.muted, fontSize: 13.5, lineHeight: 19, textAlign: 'center' },
+  segmentedTrack: { flexGrow: 0, flexShrink: 0 },
   segmented: { gap: 8, paddingRight: 20 },
   segment: {
     paddingHorizontal: 14,
@@ -762,6 +787,12 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
     paddingHorizontal: 20,
     paddingTop: 10,
+  },
+  sheetFull: {
+    top: 0,
+    maxHeight: undefined,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
   },
   grabber: {
     alignSelf: 'center',
