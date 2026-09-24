@@ -12,6 +12,7 @@ import { Feather } from '@expo/vector-icons'
 import type { User } from '@supabase/supabase-js'
 import { czk, type Home, type Offer } from '../lib/data'
 import { OfferCard } from '../components/OfferCard'
+import { PaymentInbox } from '../components/PaymentInbox'
 import { Button, CountUp, EmptyState, Press, Skeleton } from '../components/ui'
 import { TAB_BAR_SPACE } from '../components/TabBar'
 import { Mascot } from '../components/Mascot'
@@ -26,6 +27,7 @@ export function HomeScreen({
   onOpenOffer,
   onDiscover,
   onCreate,
+  onChanged,
 }: {
   user: User
   data: Home | null
@@ -34,6 +36,8 @@ export function HomeScreen({
   onOpenOffer: (offer: Offer) => void
   onDiscover: () => void
   onCreate: () => void
+  /** Reloads the home data after a payment was confirmed or rejected here. */
+  onChanged: () => void
 }) {
   const insets = useSafeAreaInsets()
   const pull = useSharedValue(0)
@@ -134,6 +138,15 @@ export function HomeScreen({
             </View>
           ) : (
             <>
+              <PaymentInbox
+                inbox={data.inbox}
+                onOpenGroup={(groupId) => {
+                  const offer = data.mine.find((o) => o.id === groupId)
+                  if (offer) onOpenOffer(offer)
+                }}
+                onChanged={onChanged}
+              />
+
               <Section title="Tvoje skupiny" count={data.mine.length}>
                 {data.mine.length === 0 ? (
                   <EmptyState

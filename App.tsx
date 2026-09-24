@@ -146,6 +146,7 @@ export default function App() {
                   onOpenOffer={setOpened}
                   onDiscover={() => setTab('discover')}
                   onCreate={() => setCreating(true)}
+                  onChanged={load}
                 />
               )}
               {tab === 'discover' && (

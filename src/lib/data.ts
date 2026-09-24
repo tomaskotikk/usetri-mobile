@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import { parseCzechAccount } from './czech-account'
-import { ACCOUNT_ERROR, upsertPayoutAccount } from './payments'
+import { ACCOUNT_ERROR, getPaymentInbox, upsertPayoutAccount, type PaymentInbox } from './payments'
 
 export type Offer = {
   id: string
@@ -124,10 +124,15 @@ export type Home = {
   mine: Offer[]
   open: Offer[]
   stats: { groups: number; monthly: number; saved: number; percent: number }
+  /** Payments to make and to confirm — empty lists hide their sections. */
+  inbox: PaymentInbox
 }
 
-/** Everything the tabs render, in one round trip pair. */
+/** Everything the tabs render, in one round trip pair (plus the payment inbox alongside). */
 export async function loadHome(userId: string): Promise<Home> {
+  // A failed inbox must not take the whole home screen down with it.
+  const inbox = getPaymentInbox(userId).catch((): PaymentInbox => ({ toPay: [], toConfirm: [] }))
+
   const { data: memberships } = await supabase
     .from('group_members')
     .select('group_id, role')
@@ -165,6 +170,7 @@ export async function loadHome(userId: string): Promise<Home> {
       saved: Math.max(0, alone - monthly),
       percent: alone > 0 ? Math.round((1 - monthly / alone) * 100) : 0,
     },
+    inbox: await inbox,
   }
 }
 
