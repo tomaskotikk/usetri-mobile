@@ -3,6 +3,8 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import Animated, { FadeIn, FadeInRight, FadeOut } from 'react-native-reanimated'
 import { Feather } from '@expo/vector-icons'
 import { createOffer, czk, loadServices, type Service } from '../lib/data'
+import { getPayoutAccount } from '../lib/payments'
+import { AccountField } from '../components/AccountField'
 import {
   Banner,
   Button,
@@ -19,8 +21,9 @@ import { CATEGORIES, colors, motion, radius } from '../theme'
 type Filter = 'all' | keyof typeof CATEGORIES
 
 /**
- * Two steps: pick the service, then price the seat. Splitting them keeps the
- * catalogue searchable without burying the three fields that actually matter.
+ * Two steps: pick the service, then price the seat and say where the money goes.
+ * Splitting them keeps the catalogue searchable without burying the fields that
+ * actually matter.
  */
 export function CreateSheet({
   open,
@@ -40,6 +43,7 @@ export function CreateSheet({
   const [seats, setSeats] = useState(2)
   const [price, setPrice] = useState('')
   const [note, setNote] = useState('')
+  const [account, setAccount] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -57,8 +61,23 @@ export function CreateSheet({
     setQuery('')
     setFilter('all')
     setNote('')
+    setAccount('')
     setError(null)
   }, [open])
+
+  // A saved account only needs confirming. Never overwrites what was already typed.
+  useEffect(() => {
+    if (!open) return
+    let current = true
+    getPayoutAccount(userId)
+      .then((saved) => {
+        if (current && saved) setAccount((typed) => typed || saved.display)
+      })
+      .catch(() => {})
+    return () => {
+      current = false
+    }
+  }, [open, userId])
 
   const options = useMemo(
     () => [
@@ -102,6 +121,7 @@ export function CreateSheet({
       seatsTotal: seats,
       pricePerSeat: Math.round(value),
       note: note.trim() || null,
+      account,
     })
     setBusy(false)
 
@@ -218,6 +238,17 @@ export function CreateSheet({
               />
             </View>
 
+            <View style={{ marginTop: 18 }}>
+              <AccountField
+                label="Kam ti mají členové posílat peníze?"
+                value={account}
+                onChangeText={setAccount}
+              />
+              <Text style={styles.fieldHint}>
+                Z čísla účtu vygenerujeme členům QR platbu. Uvidí ho jen lidé ve tvé skupině.
+              </Text>
+            </View>
+
             <Animated.View entering={FadeIn.duration(motion.base)} style={styles.math}>
               <MathRow label="Plná cena tarifu" value={czk(picked.fullPrice)} />
               <MathRow label={`Vybereš od ${seats - 1} lidí`} value={czk(collected)} />
@@ -308,6 +339,7 @@ const styles = StyleSheet.create({
   mathValue: { color: colors.navyDeep, fontSize: 13.5, fontWeight: '600' },
   mathValueStrong: { color: colors.brandForeground, fontSize: 16, fontWeight: '800' },
   mathDivider: { height: 1, backgroundColor: colors.border, marginVertical: 2 },
+  fieldHint: { color: colors.muted, fontSize: 11.5, lineHeight: 16, marginTop: 6 },
   hint: {
     color: colors.muted,
     fontSize: 11.5,

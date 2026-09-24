@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Alert, Image, Linking, RefreshControl, StyleSheet, Text, View } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -11,7 +11,9 @@ import { Feather } from '@expo/vector-icons'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { avatarFromSession, czk, updateProfileName, type Home } from '../lib/data'
+import { getPayoutAccount, type PayoutAccount } from '../lib/payments'
 import { Banner, Button, Field, Press, Sheet } from '../components/ui'
+import { PayoutAccountForm } from '../components/AccountField'
 import { TAB_BAR_SPACE } from '../components/TabBar'
 import { PullMascot } from '../components/PullMascot'
 import { colors, motion, radius } from '../theme'
@@ -49,6 +51,26 @@ export function ProfileScreen({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+
+  /** Undefined while loading, null when none is saved yet. */
+  const [account, setAccount] = useState<PayoutAccount | null | undefined>(undefined)
+  const [editingAccount, setEditingAccount] = useState(false)
+
+  useEffect(() => {
+    let current = true
+    getPayoutAccount(user.id)
+      .then((row) => current && setAccount(row))
+      .catch(() => current && setAccount(null))
+    return () => {
+      current = false
+    }
+  }, [user.id])
+
+  const accountSaved = () => {
+    void getPayoutAccount(user.id).then(setAccount)
+    setEditingAccount(false)
+    setNotice('Číslo účtu je uložené.')
+  }
 
   const save = async () => {
     const trimmed = name.trim()
@@ -141,6 +163,15 @@ export function ProfileScreen({
           </View>
         )}
 
+        <Group title="Výplatní účet">
+          <Row
+            icon="credit-card"
+            label={account ? account.display : account === null ? 'Doplnit číslo účtu' : 'Načítám…'}
+            hint="Sem ti členové tvých skupin posílají peníze."
+            onPress={account === undefined ? undefined : () => setEditingAccount(true)}
+          />
+        </Group>
+
         <Group title="Nastavení">
           <Row icon="help-circle" label="Jak to funguje" onPress={onReplayGuide} />
           <Row
@@ -156,7 +187,7 @@ export function ProfileScreen({
         </Group>
 
         <Text style={styles.footnote}>
-          Platby zatím neprobíhají přes appku — se zakladatelem skupiny se domluvíte napřímo.
+          Peníze posíláš napřímo zakladateli skupiny. Ušetři je nedrží — jen hlídá, co je zaplacené.
         </Text>
       </Animated.ScrollView>
 
@@ -172,6 +203,16 @@ export function ProfileScreen({
           />
           {error && <Banner tone="error" text={error} />}
           <Button label="Uložit" onPress={save} loading={saving} />
+        </View>
+      </Sheet>
+
+      <Sheet open={editingAccount} onClose={() => setEditingAccount(false)} title="Výplatní účet">
+        <View style={{ gap: 14 }}>
+          <Text style={styles.sheetNote}>
+            Sem ti členové tvých skupin posílají peníze. Vidí ho jen lidé, kteří jsou v některé z tvých
+            skupin.
+          </Text>
+          <PayoutAccountForm userId={user.id} current={account?.display} onSaved={accountSaved} />
         </View>
       </Sheet>
     </View>
@@ -313,6 +354,7 @@ const styles = StyleSheet.create({
   },
   rowLabel: { color: colors.navyDeep, fontSize: 14.5, fontWeight: '600' },
   rowHint: { color: colors.muted, fontSize: 12, marginTop: 1.5 },
+  sheetNote: { color: colors.muted, fontSize: 13.5, lineHeight: 19 },
   footnote: {
     color: colors.muted,
     fontSize: 12,

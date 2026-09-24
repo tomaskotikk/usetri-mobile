@@ -1,4 +1,6 @@
 import { supabase } from './supabase'
+import { parseCzechAccount } from './czech-account'
+import { ACCOUNT_ERROR, upsertPayoutAccount } from './payments'
 
 export type Offer = {
   id: string
@@ -259,14 +261,25 @@ export async function leaveOffer(groupId: string, userId: string) {
   return error ? 'Odchod se nepovedl.' : null
 }
 
-/** The owner row is added by a trigger, so the insert alone is the whole creation. */
+/**
+ * The owner row is added by a trigger, so the insert alone is the whole creation.
+ * The payout account is saved first — members cannot pay a group without one.
+ */
 export async function createOffer(input: {
   serviceSlug: string
   ownerId: string
   seatsTotal: number
   pricePerSeat: number
   note: string | null
+  /** Where members send money: 123456789/0800, 19-123456789/0800 or a CZ IBAN. */
+  account: string
 }): Promise<{ id: string } | { error: string }> {
+  const account = parseCzechAccount(input.account)
+  if (!account) return { error: ACCOUNT_ERROR }
+
+  const accountError = await upsertPayoutAccount(input.ownerId, account)
+  if (accountError) return { error: 'Číslo účtu se nepodařilo uložit. Zkus to prosím znovu.' }
+
   const { data, error } = await supabase
     .from('groups')
     .insert({

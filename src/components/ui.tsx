@@ -199,8 +199,14 @@ export function Field({
         <TextInput
           {...props}
           secureTextEntry={hidden}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
+          onFocus={(e) => {
+            setFocused(true)
+            props.onFocus?.(e)
+          }}
+          onBlur={(e) => {
+            setFocused(false)
+            props.onBlur?.(e)
+          }}
           placeholderTextColor="#9aa3b4"
           style={styles.input}
         />
