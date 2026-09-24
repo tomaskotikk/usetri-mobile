@@ -13,6 +13,7 @@ import {
   type Offer,
 } from '../lib/data'
 import { getPaymentView, type PaymentView } from '../lib/payments'
+import { shareInvite } from '../lib/invite'
 import { Avatar, Banner, Button, Press, Seats, ServiceMark, Sheet, Skeleton, Tag } from '../components/ui'
 import { PayoutAccountForm } from '../components/AccountField'
 import {
@@ -297,6 +298,13 @@ export function OfferSheet({
         )}
 
         <View style={styles.actions}>
+          {shown.role !== null && free > 0 && !shown.closed && (
+            <Button
+              label="Pozvat do skupiny"
+              icon="share-2"
+              onPress={() => shareInvite(shown).catch(() => setError('Sdílení se nepovedlo.'))}
+            />
+          )}
           {shown.role === 'owner' ? (
             <>
               <Button
