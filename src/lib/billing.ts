@@ -77,13 +77,16 @@ export function periodStatus(
 }
 
 export function todayInPrague(now: Date = new Date()): IsoDate {
-  // en-CA formats as YYYY-MM-DD.
-  return new Intl.DateTimeFormat('en-CA', {
+  // Built from parts: how a locale prints a whole date varies between ICU versions
+  // (Hermes on some phones prints en-CA as M/D/YYYY).
+  const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'Europe/Prague',
     year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(now)
+    month: 'numeric',
+    day: 'numeric',
+  }).formatToParts(now)
+  const get = (type: 'year' | 'month' | 'day') => Number(parts.find((p) => p.type === type)?.value)
+  return iso(get('year'), get('month'), get('day'))
 }
 
 /** "2. 10. 2026" — no Intl, so hydration always matches. */
