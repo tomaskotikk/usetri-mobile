@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native'
 import Animated, { FadeIn } from 'react-native-reanimated'
 import { Feather } from '@expo/vector-icons'
@@ -12,7 +12,15 @@ import {
   type Member,
   type Offer,
 } from '../lib/data'
+import { getPaymentView, type PaymentView } from '../lib/payments'
 import { Avatar, Banner, Button, Press, Seats, ServiceMark, Sheet, Skeleton, Tag } from '../components/ui'
+import { PayoutAccountForm } from '../components/AccountField'
+import {
+  MemberPaymentControls,
+  PaymentCard,
+  PaymentStatusBadge,
+  type RunPayment,
+} from '../components/PaymentCard'
 import { categoryOf, colors, motion, radius } from '../theme'
 
 /**
@@ -36,6 +44,11 @@ export function OfferSheet({
   const [members, setMembers] = useState<Member[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /** Outcome of the last payment write, shown next to the payment cards. */
+  const [notice, setNotice] = useState<{ tone: 'error' | 'info'; text: string } | null>(null)
+  const [payments, setPayments] = useState<PaymentView | null>(null)
+  /** A payment changed while the sheet was open, so the lists behind it are stale. */
+  const dirty = useRef(false)
   // Closing clears `offer`, but the sheet still needs its contents while it slides away.
   const [shown, setShown] = useState<Offer | null>(offer)
 
@@ -49,15 +62,20 @@ export function OfferSheet({
 
     let current = true
     setError(null)
+    setNotice(null)
     setMembers(null)
+    setPayments(null)
     loadMembers(offer.id)
       .then((rows) => current && setMembers(rows))
       .catch(() => current && setMembers([]))
+    getPaymentView(userId, offer)
+      .then((view) => current && setPayments(view))
+      .catch(() => current && setPayments(null))
 
     return () => {
       current = false
     }
-  }, [offer])
+  }, [offer, userId])
 
   if (!shown) return null
 
@@ -65,11 +83,44 @@ export function OfferSheet({
   const saving = shown.fullPrice - shown.pricePerSeat
   const category = categoryOf(shown.category)
 
+  const reloadPayments = async () => {
+    try {
+      setPayments(await getPaymentView(userId, shown))
+    } catch {
+      // The write went through; a stale card is fixed by reopening the sheet.
+    }
+  }
+
+  /**
+   * Payment writes keep the sheet open: the card redraws from a fresh read, and
+   * the home screen catches up once the sheet closes.
+   */
+  const runPayment: RunPayment = async (action, success) => {
+    setNotice(null)
+    const failed = await action()
+    if (failed) return setNotice({ tone: 'error', text: failed })
+    dirty.current = true
+    setNotice({ tone: 'info', text: success })
+    await reloadPayments()
+  }
+
+  const close = () => {
+    if (dirty.current) {
+      dirty.current = false
+      onChanged()
+    }
+    onClose()
+  }
+
+  const myName = members?.find((m) => m.userId === userId)?.name ?? ''
+  const mine = payments?.mine ?? null
+
   const run = async (action: () => Promise<string | null>) => {
     setBusy(true)
     const failed = await action()
     setBusy(false)
     if (failed) return setError(failed)
+    dirty.current = false
     onChanged()
     onClose()
   }
@@ -85,7 +136,7 @@ export function OfferSheet({
     ])
 
   return (
-    <Sheet open={offer !== null} onClose={onClose} title={shown.name}>
+    <Sheet open={offer !== null} onClose={close} title={shown.name}>
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
           <ServiceMark name={shown.name} color={shown.color} slug={shown.serviceSlug} size={54} />
@@ -122,6 +173,48 @@ export function OfferSheet({
           )}
         </View>
 
+        {shown.role === 'owner' && payments && !payments.account && (
+          <View style={styles.accountCard}>
+            <View style={styles.accountHead}>
+              <Feather name="credit-card" size={16} color={colors.brandForeground} />
+              <Text style={styles.accountTitle}>Doplň číslo účtu, ať ti členové můžou platit</Text>
+            </View>
+            <Text style={styles.accountText}>
+              Členům z něj vygenerujeme QR platbu. Uvidí ho jen lidé ve tvých skupinách.
+            </Text>
+            <PayoutAccountForm
+              userId={userId}
+              onSaved={() => {
+                // The card goes away once the account exists, so the notice outlives it.
+                setNotice({ tone: 'info', text: 'Číslo účtu je uložené.' })
+                void reloadPayments()
+              }}
+            />
+          </View>
+        )}
+
+        {mine &&
+          members !== null &&
+          mine.periods.map((view) => (
+            <PaymentCard
+              key={view.period}
+              groupId={shown.id}
+              userId={userId}
+              serviceName={shown.name}
+              payerName={myName}
+              account={payments?.account ?? null}
+              vs={mine.vs}
+              view={view}
+              run={runPayment}
+            />
+          ))}
+
+        {notice && (
+          <View style={{ marginTop: 14 }}>
+            <Banner tone={notice.tone} text={notice.text} />
+          </View>
+        )}
+
         <View style={styles.seatBlock}>
           <View style={styles.seatHead}>
             <Text style={styles.sectionTitle}>Obsazenost</Text>
@@ -147,25 +240,45 @@ export function OfferSheet({
           </View>
         ) : (
           <View style={styles.members}>
-            {members.map((member, i) => (
-              <Animated.View key={member.id} entering={FadeIn.delay(i * 45).duration(motion.base)}>
-                <Press
-                  onPress={() => member.userId !== userId && onOpenMember(member.userId)}
-                  scaleTo={member.userId === userId ? 1 : 0.97}
-                >
-                  <View style={styles.member}>
-                    <Avatar name={member.name} src={member.avatar} size={30} />
-                    <Text style={styles.memberName} numberOfLines={1}>
-                      {member.name}
-                    </Text>
-                    {member.role === 'owner' && <Tag label="zakladatel" tone="muted" />}
-                    {member.userId !== userId && (
-                      <Feather name="chevron-right" size={16} color="#b6bfcd" />
+            {members.map((member, i) => {
+              const payment =
+                shown.role === 'owner' && member.role === 'member'
+                  ? payments?.members.get(member.userId)
+                  : undefined
+              return (
+                <Animated.View key={member.id} entering={FadeIn.delay(i * 45).duration(motion.base)}>
+                  <View style={styles.memberCard}>
+                    <Press
+                      onPress={() => member.userId !== userId && onOpenMember(member.userId)}
+                      scaleTo={member.userId === userId ? 1 : 0.97}
+                    >
+                      <View style={styles.memberRow}>
+                        <Avatar name={member.name} src={member.avatar} size={30} />
+                        <Text style={styles.memberName} numberOfLines={1}>
+                          {member.name}
+                        </Text>
+                        {member.role === 'owner' && <Tag label="zakladatel" tone="muted" />}
+                        {member.userId !== userId && (
+                          <Feather name="chevron-right" size={16} color="#b6bfcd" />
+                        )}
+                      </View>
+                    </Press>
+                    {payment && (
+                      <View style={styles.memberPay}>
+                        <PaymentStatusBadge status={payment.status} />
+                        <View style={{ flex: 1 }} />
+                        <MemberPaymentControls
+                          groupId={shown.id}
+                          userId={member.userId}
+                          view={payment}
+                          run={runPayment}
+                        />
+                      </View>
                     )}
                   </View>
-                </Press>
-              </Animated.View>
-            ))}
+                </Animated.View>
+              )
+            })}
             {Array.from({ length: free }).map((_, i) => (
               <View key={`free-${i}`} style={[styles.member, styles.memberFree]}>
                 <View style={[styles.memberAvatar, styles.memberAvatarFree]}>
@@ -216,7 +329,7 @@ export function OfferSheet({
         </View>
 
         <Text style={styles.disclaimer}>
-          Platbu si se zakladatelem domluvíte napřímo — appka peníze zatím nepřevádí.
+          Peníze posíláš napřímo zakladateli skupiny. Ušetři je nedrží — jen hlídá, co je zaplacené.
         </Text>
       </ScrollView>
     </Sheet>
@@ -277,6 +390,37 @@ const styles = StyleSheet.create({
   },
   noteText: { flex: 1, color: colors.navyDeep, fontSize: 13.5, lineHeight: 19 },
   members: { gap: 8 },
+  memberCard: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+    gap: 9,
+  },
+  memberRow: { flexDirection: 'row', alignItems: 'center', gap: 11 },
+  memberPay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: 9,
+  },
+  accountCard: {
+    marginTop: 18,
+    backgroundColor: colors.white,
+    borderWidth: 2,
+    borderColor: 'rgba(0,217,154,0.4)',
+    borderRadius: radius.xl,
+    padding: 16,
+    gap: 10,
+  },
+  accountHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  accountTitle: { flex: 1, color: colors.navyDeep, fontSize: 15.5, fontWeight: '800', letterSpacing: -0.3 },
+  accountText: { color: colors.muted, fontSize: 13, lineHeight: 18 },
   member: {
     flexDirection: 'row',
     alignItems: 'center',
