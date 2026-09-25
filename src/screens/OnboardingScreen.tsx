@@ -19,33 +19,31 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated'
 import { Button, Press } from '../components/ui'
-import { Mascot, type MascotMood } from '../components/Mascot'
+import { Usetrilek, type UsetrilekPose } from '../usetrilek'
 import { colors, motion, radius } from '../theme'
 
 const SLIDES: {
-  mood: MascotMood
-  holds?: 'coin' | 'bag'
+  pose: UsetrilekPose
   title: string
   text: string
 }[] = [
   {
-    mood: 'wave',
+    pose: 'sedi',
     title: 'Předplatné se platí\nve více lidech',
     text: 'Rodinné tarify jsou stavěné pro šest lidí. Když je využiješ sám, platíš za pět prázdných míst.',
   },
   {
-    mood: 'search',
+    pose: 'hleda',
     title: 'Najdi volné místo',
     text: 'V Objevit vidíš skupiny, kterým zbývá místo. Přidáš se jedním klepnutím a platíš jen svůj podíl.',
   },
   {
-    mood: 'idle',
-    holds: 'bag',
+    pose: 'zve',
     title: 'Nebo založ vlastní',
     text: 'Máš tarif, ve kterém zbývá místo? Vyber službu, nastav cenu za osobu a nech se najít.',
   },
   {
-    mood: 'cheer',
+    pose: 'mince',
     title: 'Sleduj, kolik ušetříš',
     text: 'Na Domů vidíš rozdíl mezi tím, co platíš, a tím, co by stálo mít všechno sám.',
   },
@@ -57,6 +55,7 @@ export function OnboardingScreen({ onDone }: { onDone: () => void }) {
   const insets = useSafeAreaInsets()
   const scroller = useRef<ScrollView>(null)
   const [index, setIndex] = useState(0)
+  const [stage, setStage] = useState(0)
 
   const last = index === SLIDES.length - 1
 
@@ -89,8 +88,22 @@ export function OnboardingScreen({ onDone }: { onDone: () => void }) {
         )}
       </View>
 
+      {/*
+        One Ušetřílek for the whole guide, above the pages: he doesn't slide away
+        with the text, he changes pose as it does.
+      */}
+      <View style={styles.stage} onLayout={(e) => setStage(e.nativeEvent.layout.height)}>
+        <View style={styles.artGlow} />
+        {stage > 0 && (
+          <Animated.View entering={FadeIn.delay(120).duration(motion.slow)}>
+            <Usetrilek pose={SLIDES[index].pose} height={Math.min(320, stage - 16)} />
+          </Animated.View>
+        )}
+      </View>
+
       <ScrollView
         ref={scroller}
+        style={styles.pager}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
@@ -99,13 +112,6 @@ export function OnboardingScreen({ onDone }: { onDone: () => void }) {
       >
         {SLIDES.map((slide, i) => (
           <View key={slide.title} style={[styles.slide, { width }]}>
-            <Animated.View entering={FadeIn.delay(i === 0 ? 120 : 0).duration(motion.slow)}>
-              <View style={styles.art}>
-                <View style={styles.artGlow} />
-                <Mascot size={172} mood={slide.mood} holds={slide.holds} />
-              </View>
-            </Animated.View>
-
             <Animated.Text
               entering={FadeInDown.delay(i === 0 ? 200 : 0).duration(motion.slow)}
               style={styles.title}
@@ -158,16 +164,18 @@ const styles = StyleSheet.create({
   },
   wordmark: { color: colors.white, fontSize: 19, fontWeight: '800', letterSpacing: -0.5 },
   skip: { color: 'rgba(255,255,255,0.55)', fontSize: 14, fontWeight: '600' },
-  slide: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 34 },
-  art: { alignItems: 'center', justifyContent: 'center', marginBottom: 26 },
+  stage: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', minHeight: 160 },
   // A soft disc behind him, so he is not floating on flat navy.
   artGlow: {
     position: 'absolute',
-    width: 168,
-    height: 168,
-    borderRadius: 84,
+    bottom: 30,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
     backgroundColor: 'rgba(0,217,154,0.10)',
   },
+  pager: { flexGrow: 0 },
+  slide: { alignItems: 'center', justifyContent: 'flex-start', paddingHorizontal: 34, paddingTop: 22, paddingBottom: 10 },
   title: {
     color: colors.white,
     fontSize: 29,

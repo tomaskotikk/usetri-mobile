@@ -17,6 +17,7 @@ import {
   type PayoutAccount,
   type PeriodView,
 } from '../lib/payments'
+import { Usetrilek } from '../usetrilek'
 import { Button, Press } from './ui'
 import { colors, radius } from '../theme'
 
@@ -179,8 +180,8 @@ export function PaymentCard({
     return (
       <View style={styles.card}>
         {header}
-        <View style={styles.line}>
-          <Feather name="check-circle" size={15} color={colors.brand} />
+        <View style={styles.figureLine}>
+          <Usetrilek pose="palec" height={92} shadow={false} />
           <Text style={styles.muted}>Zakladatel platbu potvrdil. Tenhle měsíc máš vyřízený.</Text>
         </View>
       </View>
@@ -218,7 +219,7 @@ export function PaymentCard({
         {view.status === 'reported' && view.paymentId ? (
           <View style={styles.waiting}>
             <View style={[styles.line, { marginTop: 0, flex: 1 }]}>
-              <Feather name="clock" size={15} color={colors.muted} />
+              <Usetrilek pose="ceka" height={64} shadow={false} style={{ marginVertical: -6 }} />
               <Text style={styles.waitingText}>Čeká na potvrzení od zakladatele</Text>
             </View>
             <SmallAction
@@ -337,10 +338,13 @@ function SharedQr({ spd, caption }: { spd: string; caption: string }) {
         <QRCode value={spd} size={176} ecl="M" color="#0b1730" backgroundColor={colors.white} quietZone={0} />
         <Text style={styles.qrCaption}>{caption}</Text>
       </View>
-      <Text style={styles.qrHint}>
-        QR z vlastního displeje nenaskenuješ. Zkopíruj údaje výše, nebo QR ulož a nahraj v aplikaci své
-        banky.
-      </Text>
+      <View style={styles.figureLine}>
+        <Usetrilek pose="qr" height={104} shadow={false} />
+        <Text style={styles.qrHint}>
+          QR z vlastního displeje nenaskenuješ. Zkopíruj údaje výše, nebo QR ulož a nahraj v aplikaci své
+          banky.
+        </Text>
+      </View>
       <Button label="Sdílet QR" icon="share" variant="outline" loading={busy} onPress={share} />
       {error && <Text style={styles.error}>{error}</Text>}
     </View>
@@ -410,7 +414,8 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   qrCaption: { color: colors.navyDeep, fontSize: 12, fontWeight: '700' },
-  qrHint: { color: colors.muted, fontSize: 12, lineHeight: 17, textAlign: 'center' },
+  qrHint: { flex: 1, color: colors.muted, fontSize: 12, lineHeight: 17 },
+  figureLine: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6 },
   waiting: {
     flexDirection: 'row',
     alignItems: 'center',

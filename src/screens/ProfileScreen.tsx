@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Alert, Image, Linking, RefreshControl, StyleSheet, Text, View } from 'react-native'
-import { StatusBar } from 'expo-status-bar'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Animated, {
   FadeInDown,
@@ -16,6 +15,7 @@ import { Banner, Button, Field, Press, Sheet } from '../components/ui'
 import { PayoutAccountForm } from '../components/AccountField'
 import { TAB_BAR_SPACE } from '../components/TabBar'
 import { PullMascot } from '../components/PullMascot'
+import { Usetrilek } from '../usetrilek'
 import { colors, motion, radius } from '../theme'
 
 const SITE = process.env.EXPO_PUBLIC_SITE_URL ?? 'https://usetri.app'
@@ -104,7 +104,6 @@ export function ProfileScreen({
 
   return (
     <View style={styles.root}>
-      <StatusBar style="dark" />
       <PullMascot pull={pull} refreshing={refreshing} />
 
       <Animated.ScrollView
@@ -122,6 +121,7 @@ export function ProfileScreen({
       >
         <View style={styles.head}>
           <Text style={styles.title}>Profil</Text>
+          <Usetrilek pose="posloucha" height={112} style={{ marginBottom: -10 }} />
         </View>
 
         <Animated.View entering={FadeInDown.duration(motion.slow)} style={styles.identity}>
@@ -280,7 +280,13 @@ function Row({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
-  head: { paddingHorizontal: 20, paddingBottom: 14 },
+  head: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+  },
   title: { color: colors.navyDeep, fontSize: 30, fontWeight: '800', letterSpacing: -1.2 },
   identity: {
     flexDirection: 'row',

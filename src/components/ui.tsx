@@ -30,7 +30,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Feather } from '@expo/vector-icons'
 import Svg, { Path } from 'react-native-svg'
 import { colors, motion, radius, shadow } from '../theme'
-import { Mascot, type MascotMood } from './Mascot'
+import { Usetrilek, type UsetrilekPose } from '../usetrilek'
 import { BrandGlyph, hasGlyph } from './BrandGlyph'
 import { monogram } from '../lib/data'
 
@@ -436,8 +436,8 @@ export function EmptyState({
   action,
 }: {
   icon: IconName
-  /** Given a mood, Ušetřík stands in for the icon — an empty screen is where he helps most. */
-  mascot?: MascotMood
+  /** Given a pose, Ušetřílek stands in for the icon — an empty screen is where he helps most. */
+  mascot?: UsetrilekPose
   title: string
   text: string
   action?: React.ReactNode
@@ -445,7 +445,7 @@ export function EmptyState({
   return (
     <View style={styles.empty}>
       {mascot ? (
-        <Mascot size={104} mood={mascot} />
+        <Usetrilek pose={mascot} height={150} style={{ marginBottom: 4 }} />
       ) : (
         <View style={styles.emptyIcon}>
           <Feather name={icon} size={20} color={colors.muted} />

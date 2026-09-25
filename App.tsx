@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Alert, StyleSheet, View } from 'react-native'
+import { Alert, StyleSheet, useWindowDimensions, View } from 'react-native'
+import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
-import Animated, { FadeIn } from 'react-native-reanimated'
+import { useDerivedValue, useSharedValue } from 'react-native-reanimated'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './src/lib/supabase'
 import { loadHome, syncProfileAvatar, type Home, type Offer } from './src/lib/data'
 import { Splash } from './src/components/Splash'
 import { TabBar, type TabKey } from './src/components/TabBar'
+import { Pager } from './src/components/Pager'
 import { AuthScreen } from './src/screens/AuthScreen'
 import { HomeScreen } from './src/screens/HomeScreen'
 import { DiscoverScreen } from './src/screens/DiscoverScreen'
@@ -44,6 +46,13 @@ export default function App() {
   /** The offer to slide back to once a member's profile closes. */
   const resume = useRef<Offer | null>(null)
   const [guide, setGuide] = useState(false)
+
+  /** The pager's offset in pixels, and the same as a page number for the tab bar. */
+  const { width } = useWindowDimensions()
+  const pagerX = useSharedValue(0)
+  const page = useDerivedValue(() => -pagerX.value / width)
+  /** A sheet or overlay is over the tabs: no swiping, and the figures behind it rest. */
+  const covered = Boolean(opened || member || creating)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: result }) => {
@@ -136,51 +145,59 @@ export default function App() {
           <OnboardingScreen onDone={dismissGuide} />
         ) : (
           <>
-            <Animated.View key={tab} entering={FadeIn.duration(motion.base)} style={styles.screen}>
-              {tab === 'home' && (
-                <HomeScreen
-                  user={session.user}
-                  data={data}
-                  refreshing={refreshing}
-                  onRefresh={refresh}
-                  onOpenOffer={setOpened}
-                  onDiscover={() => setTab('discover')}
-                  onCreate={() => setCreating(true)}
-                  onChanged={load}
-                />
-              )}
-              {tab === 'discover' && (
-                <DiscoverScreen
-                  data={data}
-                  refreshing={refreshing}
-                  onRefresh={refresh}
-                  onOpenOffer={setOpened}
-                  onCreate={() => setCreating(true)}
-                />
-              )}
-              {tab === 'groups' && (
-                <GroupsScreen
-                  data={data}
-                  refreshing={refreshing}
-                  onRefresh={refresh}
-                  onOpenOffer={setOpened}
-                  onCreate={() => setCreating(true)}
-                  onDiscover={() => setTab('discover')}
-                />
-              )}
-              {tab === 'profile' && (
-                <ProfileScreen
-                  user={session.user}
-                  data={data}
-                  refreshing={refreshing}
-                  onRefresh={refresh}
-                  onChanged={load}
-                  onReplayGuide={() => setGuide(true)}
-                />
-              )}
-            </Animated.View>
+            <StatusBar style={tab === 'home' ? 'light' : 'dark'} />
+            <Pager
+              tab={tab}
+              onChange={setTab}
+              enabled={!covered}
+              paused={covered}
+              x={pagerX}
+              pages={{
+                home: (
+                  <HomeScreen
+                    user={session.user}
+                    data={data}
+                    refreshing={refreshing}
+                    onRefresh={refresh}
+                    onOpenOffer={setOpened}
+                    onDiscover={() => setTab('discover')}
+                    onCreate={() => setCreating(true)}
+                    onChanged={load}
+                  />
+                ),
+                discover: (
+                  <DiscoverScreen
+                    data={data}
+                    refreshing={refreshing}
+                    onRefresh={refresh}
+                    onOpenOffer={setOpened}
+                    onCreate={() => setCreating(true)}
+                  />
+                ),
+                groups: (
+                  <GroupsScreen
+                    data={data}
+                    refreshing={refreshing}
+                    onRefresh={refresh}
+                    onOpenOffer={setOpened}
+                    onCreate={() => setCreating(true)}
+                    onDiscover={() => setTab('discover')}
+                  />
+                ),
+                profile: (
+                  <ProfileScreen
+                    user={session.user}
+                    data={data}
+                    refreshing={refreshing}
+                    onRefresh={refresh}
+                    onChanged={load}
+                    onReplayGuide={() => setGuide(true)}
+                  />
+                ),
+              }}
+            />
 
-            <TabBar active={tab} onChange={setTab} onCreate={() => setCreating(true)} />
+            <TabBar page={page} onChange={setTab} onCreate={() => setCreating(true)} />
 
             <OfferSheet
               offer={openedNow}
@@ -216,5 +233,4 @@ export default function App() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
-  screen: { flex: 1 },
 })

@@ -67,6 +67,7 @@ export function MemberSheet({
         <View style={styles.body}>
           <EmptyState
             icon="alert-circle"
+            mascot="krci"
             title={failed ? 'Profil se nepodařilo načíst' : 'Profil nenalezen'}
             text="Zkus to prosím znovu, nebo sheet zavři."
           />

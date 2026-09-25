@@ -1,5 +1,4 @@
 import { RefreshControl, StyleSheet, Text, View } from 'react-native'
-import { StatusBar } from 'expo-status-bar'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Animated, {
   FadeInDown,
@@ -11,7 +10,7 @@ import { OfferCard } from '../components/OfferCard'
 import { Button, EmptyState, Skeleton } from '../components/ui'
 import { TAB_BAR_SPACE } from '../components/TabBar'
 import { PullMascot } from '../components/PullMascot'
-import { Mascot } from '../components/Mascot'
+import { Usetrilek } from '../usetrilek'
 import { colors, motion, radius } from '../theme'
 
 export function GroupsScreen({
@@ -45,7 +44,6 @@ export function GroupsScreen({
 
   return (
     <View style={styles.root}>
-      <StatusBar style="dark" />
       <PullMascot pull={pull} refreshing={refreshing} />
 
       <Animated.ScrollView
@@ -78,10 +76,11 @@ export function GroupsScreen({
                 <Summary label="Obsazeno" value={`${seatsFilled}/${seatsOffered}`} />
                 <View style={styles.divider} />
                 <Summary label="Vybíráš měsíčně" value={czk(income)} />
-                <Mascot
-                  size={62}
-                  mood={seatsFilled > 0 ? 'cheer' : 'idle'}
-                  holds={income > 0 ? 'bag' : undefined}
+                <Usetrilek
+                  pose={income > 0 ? 'nese' : seatsFilled > 0 ? 'hura' : 'ceka'}
+                  height={96}
+                  shadow={false}
+                  style={{ marginVertical: -8, marginLeft: 'auto' }}
                 />
               </Animated.View>
             )}
@@ -92,7 +91,7 @@ export function GroupsScreen({
               empty={
                 <EmptyState
                   icon="plus-circle"
-                  mascot="idle"
+                  mascot="premysli"
                   title="Žádná vlastní nabídka"
                   text="Když máš v tarifu volné místo, nabídni ho ostatním a sniž si tím cenu."
                   action={
@@ -118,7 +117,7 @@ export function GroupsScreen({
               empty={
                 <EmptyState
                   icon="users"
-                  mascot="search"
+                  mascot="sedi"
                   title="Zatím nikde"
                   text="Přidej se do skupiny s volným místem a plať jen svůj podíl."
                   action={

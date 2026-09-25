@@ -16,6 +16,7 @@ import { getPaymentView, type PaymentView } from '../lib/payments'
 import { shareInvite } from '../lib/invite'
 import { Avatar, Banner, Button, Press, Seats, ServiceMark, Sheet, Skeleton, Tag } from '../components/ui'
 import { PayoutAccountForm } from '../components/AccountField'
+import { Usetrilek } from '../usetrilek'
 import {
   MemberPaymentControls,
   PaymentCard,
@@ -299,11 +300,24 @@ export function OfferSheet({
 
         <View style={styles.actions}>
           {shown.role !== null && free > 0 && !shown.closed && (
-            <Button
-              label="Pozvat do skupiny"
-              icon="share-2"
-              onPress={() => shareInvite(shown).catch(() => setError('Sdílení se nepovedlo.'))}
-            />
+            <>
+              <View style={styles.invite}>
+                <Usetrilek pose="zve" height={112} shadow={false} />
+                <Text style={styles.inviteText}>
+                  {free === 1
+                    ? 'Zbývá poslední volné místo.'
+                    : free < 5
+                      ? `Zbývají ${free} volná místa.`
+                      : `Zbývá ${free} volných míst.`}{' '}
+                  Pošli pozvánku a cena se rozpočítá mezi víc lidí.
+                </Text>
+              </View>
+              <Button
+                label="Pozvat do skupiny"
+                icon="share-2"
+                onPress={() => shareInvite(shown).catch(() => setError('Sdílení se nepovedlo.'))}
+              />
+            </>
           )}
           {shown.role === 'owner' ? (
             <>
@@ -453,6 +467,8 @@ const styles = StyleSheet.create({
   memberName: { flex: 1, color: colors.navyDeep, fontSize: 14, fontWeight: '600' },
   memberFreeText: { flex: 1, color: '#9aa3b4', fontSize: 14 },
   actions: { gap: 10, marginTop: 24 },
+  invite: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingRight: 4 },
+  inviteText: { flex: 1, color: colors.muted, fontSize: 13.5, lineHeight: 19 },
   disclaimer: {
     color: colors.muted,
     fontSize: 11.5,

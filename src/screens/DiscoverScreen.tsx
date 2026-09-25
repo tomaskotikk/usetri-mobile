@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { RefreshControl, StyleSheet, Text, View } from 'react-native'
-import { StatusBar } from 'expo-status-bar'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Animated, {
   FadeIn,
@@ -13,7 +12,7 @@ import { OfferCard } from '../components/OfferCard'
 import { Button, EmptyState, Field, Segmented, Skeleton } from '../components/ui'
 import { TAB_BAR_SPACE } from '../components/TabBar'
 import { PullMascot } from '../components/PullMascot'
-import { Mascot } from '../components/Mascot'
+import { Usetrilek } from '../usetrilek'
 import { CATEGORIES, colors, motion } from '../theme'
 
 type Filter = 'all' | keyof typeof CATEGORIES
@@ -67,7 +66,6 @@ export function DiscoverScreen({
 
   return (
     <View style={styles.root}>
-      <StatusBar style="dark" />
       <PullMascot pull={pull} refreshing={refreshing} />
 
       <Animated.ScrollView
@@ -95,7 +93,7 @@ export function DiscoverScreen({
                 : 'Skupiny, kterým zbývá místo'}
             </Text>
           </View>
-          <Mascot size={72} mood="search" />
+          <Usetrilek pose="hleda" height={118} style={{ marginBottom: -6 }} />
         </View>
 
         <View style={styles.search}>
@@ -125,7 +123,7 @@ export function DiscoverScreen({
             <Animated.View entering={FadeIn.duration(motion.base)}>
               <EmptyState
                 icon={query || filter !== 'all' ? 'search' : 'inbox'}
-                mascot={query || filter !== 'all' ? 'search' : 'sleep'}
+                mascot={query || filter !== 'all' ? 'krci' : 'spi'}
                 title={query || filter !== 'all' ? 'Nic se neshoduje' : 'Zatím tu nic není'}
                 text={
                   query || filter !== 'all'

@@ -1,6 +1,5 @@
 import { RefreshControl, StyleSheet, Text, View } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
-import { StatusBar } from 'expo-status-bar'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Animated, {
   FadeIn,
@@ -15,7 +14,7 @@ import { OfferCard } from '../components/OfferCard'
 import { PaymentInbox } from '../components/PaymentInbox'
 import { Button, CountUp, EmptyState, Press, Skeleton } from '../components/ui'
 import { TAB_BAR_SPACE } from '../components/TabBar'
-import { Mascot } from '../components/Mascot'
+import { Usetrilek } from '../usetrilek'
 import { PullMascot } from '../components/PullMascot'
 import { colors, motion, radius } from '../theme'
 
@@ -52,7 +51,6 @@ export function HomeScreen({
 
   return (
     <View style={styles.root}>
-      <StatusBar style="light" />
       {/* Navy behind the header, so the gap a pull opens up matches the gradient. */}
       <View style={[styles.pullBackdrop, { height: insets.top + 240 }]} />
       <PullMascot pull={pull} refreshing={refreshing} />
@@ -78,7 +76,7 @@ export function HomeScreen({
           </Text>
 
           <View style={styles.greetingRow}>
-            <View style={{ flex: 1, minWidth: 0 }}>
+            <View style={styles.greetingText}>
               <Animated.Text entering={FadeInDown.duration(motion.slow)} style={styles.greeting}>
                 {firstName ? `Ahoj, ${firstName}.` : 'Ahoj.'}
               </Animated.Text>
@@ -91,43 +89,43 @@ export function HomeScreen({
                   : 'Pojď si najít první skupinu.'}
               </Animated.Text>
             </View>
-            <Animated.View entering={FadeIn.delay(220).duration(motion.slow)}>
-              <Mascot
-                size={88}
-                mood="wave"
-                holds={data && data.stats.saved > 0 ? 'bag' : undefined}
-              />
-            </Animated.View>
           </View>
 
-          {!data ? (
-            <View style={styles.savingsCard}>
-              <Skeleton height={92} />
-            </View>
-          ) : (
-            <Animated.View
-              entering={FadeInDown.delay(90).duration(motion.slow)}
-              style={styles.savingsCard}
-            >
-              <Text style={styles.savingsLabel}>Tento měsíc šetříš</Text>
-              <CountUp value={data.stats.saved} format={czk} style={styles.savingsValue} />
-
-              {data.stats.percent > 0 && (
-                <Animated.View entering={FadeIn.delay(500)} style={styles.badge}>
-                  <Feather name="trending-down" size={12} color={colors.brand} />
-                  <Text style={styles.badgeText}>
-                    o {data.stats.percent} % méně než samostatně
-                  </Text>
-                </Animated.View>
-              )}
-
-              <View style={styles.statRow}>
-                <Stat label="Platíš měsíčně" value={czk(data.stats.monthly)} />
-                <Stat label="Skupiny" value={String(data.stats.groups)} />
-                <Stat label="Ročně ušetříš" value={czk(data.stats.saved * 12)} />
-              </View>
+          <View style={styles.cardSlot}>
+            {/* He hides behind the savings card: only his head and the waving hand peek over it. */}
+            <Animated.View entering={FadeIn.delay(220).duration(motion.slow)} style={styles.peek} pointerEvents="none">
+              <Usetrilek pose="ahoj" height={PEEK_HEIGHT} shadow={false} />
             </Animated.View>
-          )}
+
+            {!data ? (
+              <View style={styles.savingsCard}>
+                <Skeleton height={92} />
+              </View>
+            ) : (
+              <Animated.View
+                entering={FadeInDown.delay(90).duration(motion.slow)}
+                style={styles.savingsCard}
+              >
+                <Text style={styles.savingsLabel}>Tento měsíc šetříš</Text>
+                <CountUp value={data.stats.saved} format={czk} style={styles.savingsValue} />
+
+                {data.stats.percent > 0 && (
+                  <Animated.View entering={FadeIn.delay(500)} style={styles.badge}>
+                    <Feather name="trending-down" size={12} color={colors.brand} />
+                    <Text style={styles.badgeText}>
+                      o {data.stats.percent} % méně než samostatně
+                    </Text>
+                  </Animated.View>
+                )}
+
+                <View style={styles.statRow}>
+                  <Stat label="Platíš měsíčně" value={czk(data.stats.monthly)} />
+                  <Stat label="Skupiny" value={String(data.stats.groups)} />
+                  <Stat label="Ročně ušetříš" value={czk(data.stats.saved * 12)} />
+                </View>
+              </Animated.View>
+            )}
+          </View>
         </LinearGradient>
 
         <View style={styles.body}>
@@ -151,7 +149,7 @@ export function HomeScreen({
                 {data.mine.length === 0 ? (
                   <EmptyState
                     icon="users"
-                    mascot="wave"
+                    mascot="ceka"
                     title="Zatím nikde nejsi"
                     text="Přidej se do skupiny, které zbývá místo, nebo založ vlastní nabídku."
                     action={
@@ -198,7 +196,7 @@ export function HomeScreen({
               )}
 
               <Press onPress={onCreate} style={styles.promo}>
-                <Mascot size={58} mood="idle" holds="coin" animated={false} />
+                <Usetrilek pose="ukazuje" height={92} shadow={false} style={styles.promoFigure} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.promoTitle}>Máš volné místo v tarifu?</Text>
                   <Text style={styles.promoText}>
@@ -248,6 +246,10 @@ function Section({
   )
 }
 
+/** Ušetřílek behind the savings card: this tall, with this much of him above its edge — head, shoulders, the waving hand. */
+const PEEK_HEIGHT = 176
+const PEEK_SHOWN = 78
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   pullBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: colors.navyMid },
@@ -259,10 +261,14 @@ const styles = StyleSheet.create({
   },
   logo: { color: colors.white, fontSize: 19, fontWeight: '800', letterSpacing: -0.5 },
   greetingRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 },
+  // Leaves room on the right for his head, which rises over the card into this row.
+  greetingText: { flex: 1, minWidth: 0, paddingRight: 92 },
+  cardSlot: { marginTop: 16 },
+  // A window onto the top of him that ends where the card begins.
+  peek: { position: 'absolute', right: 24, bottom: '100%', height: PEEK_SHOWN, overflow: 'hidden' },
   greeting: { color: colors.white, fontSize: 28, fontWeight: '800', letterSpacing: -1 },
   greetingNote: { color: 'rgba(255,255,255,0.55)', fontSize: 13.5, marginTop: 4 },
   savingsCard: {
-    marginTop: 16,
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.12)',
@@ -326,6 +332,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.xl,
     padding: 15,
   },
+  promoFigure: { marginVertical: -10, marginLeft: -4 },
   promoTitle: { color: colors.navyDeep, fontSize: 14.5, fontWeight: '700' },
   promoText: { color: colors.muted, fontSize: 12.5, marginTop: 2, lineHeight: 17 },
 })

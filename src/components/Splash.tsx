@@ -11,15 +11,15 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated'
-import { Mascot } from './Mascot'
+import { Usetrilek } from '../usetrilek'
 import { colors } from '../theme'
 
 const INTRO = 520
 const WAVE_AT = 640
-const WAVE_FOR = 1500
+const WAVE_FOR = 1700
 
 /**
- * Ušetřík arrives, the wordmark settles under him, and he waves. The app is only
+ * Ušetřílek arrives, the wordmark settles under him, and he waves. The app is only
  * uncovered once that wave has played out *and* the session is resolved, so the
  * hand-off never cuts him off mid-gesture.
  */
@@ -83,10 +83,9 @@ export function Splash({ ready, onDone }: { ready: boolean; onDone: () => void }
       />
 
       <View style={styles.center}>
-        <Animated.View style={[styles.halo, haloStyle]} />
-
         <Animated.View style={[styles.mascot, wordmark]}>
-          <Mascot size={140} mood={waving ? 'wave' : 'idle'} />
+          <Animated.View style={[styles.halo, haloStyle]} />
+          <Usetrilek pose={waving ? 'ahoj' : 'stoji'} height={220} />
         </Animated.View>
 
         <Animated.View style={[styles.row, wordmark]}>
@@ -105,12 +104,12 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   halo: {
     position: 'absolute',
-    width: 220,
-    height: 220,
-    borderRadius: 110,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
     backgroundColor: colors.brand,
   },
-  mascot: { marginBottom: 18 },
+  mascot: { marginBottom: 14, alignItems: 'center', justifyContent: 'center' },
   row: { flexDirection: 'row', alignItems: 'flex-end', gap: 5 },
   word: { color: colors.white, fontSize: 42, fontWeight: '800', letterSpacing: -1.8 },
   dot: { width: 11, height: 11, borderRadius: 6, backgroundColor: colors.brand, marginBottom: 8 },
